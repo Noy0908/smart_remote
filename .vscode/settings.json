@@ -1,0 +1,8 @@
+{
+    "iis.configDir": "",
+    "cmake.sourceDirectory": "C:/Work/project_docs/smart_remote/esb-ble-mouse-mpsl-circle-callback-timesync/prx",
+    "nrf-connect.applications": [],
+    "files.associations": {
+        "bluetooth.h": "c"
+    }
+}
