@@ -76,7 +76,7 @@ static app_bt_event_t 	  m_event;
 
 static const uint8_t  dbg_pins[] = {31, 30, 29, 28, 04, 03};
 
-static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
+// static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
 
 
 /* HIDS instance. */
@@ -147,7 +147,7 @@ static void timer_handler(nrf_timer_event_t event_type, void * p_context)
     	struct mouse_pos pos;
 		static int8_t 	circle_data[2];
 		
-  gpio_pin_toggle(dbg_port, dbg_pins[1]);
+//   gpio_pin_toggle(dbg_port, dbg_pins[1]);
 
 		circle_test_get(circle_data);
 
@@ -641,6 +641,11 @@ int app_bt_init(app_bt_callback_t callback)
 
 	m_callback = callback;
 
+	timer_init();
+
+	/* DIS initialized at system boot with SYS_INIT macro. */
+	hid_init();
+
 	err = bt_enable(NULL);
 	if (err) {
 		LOG_ERR("Bluetooth init failed (err %d)", err);
@@ -649,15 +654,8 @@ int app_bt_init(app_bt_callback_t callback)
 
 	LOG_INF("Bluetooth initialized");
 
-	timer_init();
-
-	/* DIS initialized at system boot with SYS_INIT macro. */
-	hid_init();
-
 	k_work_init(&hids_work, mouse_handler);
 	k_work_init(&adv_work, advertising_process);
-
-
 
 	if (IS_ENABLED(CONFIG_SETTINGS)) {
 		settings_load();

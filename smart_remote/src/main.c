@@ -50,7 +50,7 @@ static struct gpio_callback button_cb_data;
 
 static const uint8_t  dbg_pins[] = {31, 30, 29, 28, 04, 03};
 
-static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
+// static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
 static const struct device *button_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
 
 static const struct gpio_dt_spec leds[] = {
@@ -70,13 +70,13 @@ void on_timeslot_start_stop(timeslot_callback_type_t type)
 
 	switch (type) {
 		case APP_TS_STARTED:
-		gpio_pin_set(dbg_port, dbg_pins[0], 1);
-			dk_set_led_off(TIMESLOT_LED);
+		// gpio_pin_set(dbg_port, dbg_pins[0], 1);
+		// 	dk_set_led_off(TIMESLOT_LED);
 			app_esb_resume();
 
 			if(is_bt_connected) {
 
-		gpio_pin_set(dbg_port, dbg_pins[2], 1);	
+		// gpio_pin_set(dbg_port, dbg_pins[2], 1);	
 				memcpy(esb_tx_buf, (uint8_t*)&tx_counter, 4);
 				int err = app_esb_send(esb_tx_buf, ESB_PKT_SIZE);
 				if (err < 0) {
@@ -86,14 +86,14 @@ void on_timeslot_start_stop(timeslot_callback_type_t type)
 					LOG_INF("ESB TX upload %.2x-%.2x", (tx_counter& 0xFF), ((tx_counter >> 8) & 0xFF));
 					tx_counter++;
 				}
-		gpio_pin_set(dbg_port, dbg_pins[2], 0);	
+		// gpio_pin_set(dbg_port, dbg_pins[2], 0);	
 		
 			}
 
 			break;
 		case APP_TS_STOPPED:
-		gpio_pin_set(dbg_port, dbg_pins[0], 0);
-			dk_set_led_on(TIMESLOT_LED);
+		// gpio_pin_set(dbg_port, dbg_pins[0], 0);
+			// dk_set_led_on(TIMESLOT_LED);
 			app_esb_suspend();
 			break;
 	}
@@ -104,9 +104,9 @@ void on_esb_callback(app_esb_event_t *event)
 	switch(event->evt_type) {
 		case APP_ESB_EVT_TX_SUCCESS:
 
-		gpio_pin_set(dbg_port, dbg_pins[3], 1);
+		// gpio_pin_set(dbg_port, dbg_pins[3], 1);
 			LOG_INF("ESB TX success");
-		gpio_pin_set(dbg_port, dbg_pins[3], 0);
+		// gpio_pin_set(dbg_port, dbg_pins[3], 0);
 			break;
 		case APP_ESB_EVT_TX_FAIL:
 			LOG_INF("ESB TX failed");
@@ -152,30 +152,30 @@ void button_changed(uint32_t button_state, uint32_t has_changed)
 }
 
 
-int dbg_pins_init( void )
-{
+// int dbg_pins_init( void )
+// {
 	
-	int err;
+// 	int err;
 	
-	if (!device_is_ready(dbg_port)) {
-		LOG_ERR("Could not bind to debug port");
-		return -ENODEV;
-	}
+// 	if (!device_is_ready(dbg_port)) {
+// 		LOG_ERR("Could not bind to debug port");
+// 		return -ENODEV;
+// 	}
 	
-	for (size_t i = 0; i < ARRAY_SIZE(dbg_pins); i++) {
-		err = gpio_pin_configure(dbg_port, dbg_pins[i], GPIO_OUTPUT);
-		if (err){
-					LOG_ERR("Unable to configure dbg%u, err %d", i, err);
-					dbg_port = NULL;
-					return err;
-				}
+// 	for (size_t i = 0; i < ARRAY_SIZE(dbg_pins); i++) {
+// 		err = gpio_pin_configure(dbg_port, dbg_pins[i], GPIO_OUTPUT);
+// 		if (err){
+// 					LOG_ERR("Unable to configure dbg%u, err %d", i, err);
+// 					dbg_port = NULL;
+// 					return err;
+// 				}
                       		
-		gpio_pin_set(dbg_port, dbg_pins[i], 0); 
-	}
+// 		gpio_pin_set(dbg_port, dbg_pins[i], 0); 
+// 	}
 
-	return 0;
+// 	return 0;
 
-}
+// }
 
 
 
@@ -210,6 +210,14 @@ static void button_pressed(const struct device *dev, struct gpio_callback *cb, u
 	// 	gpio_pin_toggle(leds[0].port, leds[i].pin);
 	// }
 	button_flag = !button_flag;
+	if (button_flag && is_bt_connected) {
+		app_bt_move(true);
+	}
+
+	if (!button_flag) {
+		app_bt_move(false);
+	}
+
 	LOG_INF("Button pressed at %ld	 button_flag=%d\n", k_cycle_get_32(),button_flag);
 }
 
@@ -266,7 +274,7 @@ int main(void)
 	}
 
 	LOG_INF("ESB BLE Multiprotocol Example, version is %s!\r\n",FW_VERSION);
-#if 0
+#if 1
 	err = app_bt_init(on_bt_callback);
 	if (err) {
 		LOG_ERR("app_bt init failed (err %d)", err);
