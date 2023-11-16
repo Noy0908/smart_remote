@@ -10,19 +10,20 @@ MODIFIED SAMPLE TO INCLUDE EXTENSIONS ++
 
 #include <zephyr/kernel.h>
 #include <zephyr/console/console.h>
+#include <app_event_manager.h>
 #include <string.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/types.h>
 #include <zephyr/logging/log.h>
-
 #include <zephyr/drivers/gpio.h> 
-
-#include <dk_buttons_and_leds.h>
+// #include <dk_buttons_and_leds.h>
 #include "app_bt_mouse.h"
 #include "app_timeslot.h"
 #include "app_esb.h"
+#include "drv_mic.h"
+#include "mic_work_event.h"
 
-#define FW_VERSION		"1.0.0"
+#define FW_VERSION		"1.2.1"
 
 #define MOV_LED			DK_LED1
 #define TIMESLOT_LED	DK_LED2
@@ -48,10 +49,10 @@ static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET_OR(SW0_NODE, gpios,{0
 static struct gpio_callback button_cb_data;
 
 
-static const uint8_t  dbg_pins[] = {31, 30, 29, 28, 04, 03};
+// static const uint8_t  dbg_pins[] = {31, 30, 29, 28, 04, 03};
 
 // static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
-static const struct device *button_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
+// static const struct device *button_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
 
 static const struct gpio_dt_spec leds[] = {
 	// GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios),
@@ -135,21 +136,21 @@ void on_bt_callback(app_bt_event_t *event)
 	}
 }
 
-void button_changed(uint32_t button_state, uint32_t has_changed)
-{
+// void button_changed(uint32_t button_state, uint32_t has_changed)
+// {
 	
-	uint32_t buttons = button_state & has_changed;
+// 	uint32_t buttons = button_state & has_changed;
 
 	
-	if ((buttons & KEY_ON_MASK) && is_bt_connected) {
-		dk_set_led_on(MOV_LED);
-		app_bt_move(true);
-	}
-	if (buttons & KEY_OFF_MASK) {
-		dk_set_led_off(MOV_LED);
-		app_bt_move(false);
-	}
-}
+// 	if ((buttons & KEY_ON_MASK) && is_bt_connected) {
+// 		dk_set_led_on(MOV_LED);
+// 		app_bt_move(true);
+// 	}
+// 	if (buttons & KEY_OFF_MASK) {
+// 		dk_set_led_off(MOV_LED);
+// 		app_bt_move(false);
+// 	}
+// }
 
 
 // int dbg_pins_init( void )
@@ -201,6 +202,27 @@ static int leds_init(void)
 	return 0;
 }
 
+
+void turn_on_off_led(bool onOff)
+{
+	size_t i = 0;
+	if(onOff == true)
+	{
+		for ( i=0; i < ARRAY_SIZE(leds); i++) 
+		{	
+			gpio_pin_set(leds[0].port, leds[i].pin, 1);
+		}
+	}
+	else
+	{
+		for (i = 0; i < ARRAY_SIZE(leds); i++) 
+		{	
+			gpio_pin_set(leds[0].port, leds[i].pin, 0);
+		}
+	}
+}
+
+
 static volatile bool button_flag = false;
 static void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
@@ -210,21 +232,36 @@ static void button_pressed(const struct device *dev, struct gpio_callback *cb, u
 	// 	gpio_pin_toggle(leds[0].port, leds[i].pin);
 	// }
 	button_flag = !button_flag;
-	if (button_flag && is_bt_connected) {
-		app_bt_move(true);
-	}
+	// if (button_flag && is_bt_connected) {
+	// 	app_bt_move(true);
+	// }
 
-	if (!button_flag) {
-		app_bt_move(false);
-	}
+	// if (!button_flag) {
+	// 	app_bt_move(false);
+	// }
 
-	LOG_INF("Button pressed at %ld	 button_flag=%d\n", k_cycle_get_32(),button_flag);
+	LOG_INF("Button pressed at %d	 button_flag=%d\n", k_cycle_get_32(),button_flag);
+
+
+	// wake up device and trigger micphone to work
+	// if(button_flag)
+	// {
+	// 	struct mic_work_event *mic_event = new_mic_work_event();
+	// 	mic_event->type = MIC_STATUS_START;
+	// 	APP_EVENT_SUBMIT(mic_event);
+	// }
+	// else
+	// {
+	// 	struct mic_work_event *mic_event = new_mic_work_event();
+	// 	mic_event->type = MIC_STATUS_STOP;
+	// 	APP_EVENT_SUBMIT(mic_event);
+	// }
 }
 
 
 static int buttons_init( void )
 {
-	int err;
+	int err = 0;
 	
 	if (!device_is_ready(button.port)) {
 		LOG_ERR("Could not bind to debug port");
@@ -235,14 +272,14 @@ static int buttons_init( void )
 	if (err != 0) {
 		LOG_ERR("Error %d: failed to configure %s pin %d\n",
 		       err, button.port->name, button.pin);
-		return;
+		return err;
 	}
 
 	err = gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_FALLING);
 	if (err != 0) {
 		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
 			err, button.port->name, button.pin);
-		return;
+		return err;
 	}
 
 	gpio_init_callback(&button_cb_data, button_pressed, BIT(button.pin));
@@ -265,7 +302,7 @@ int main(void)
 	err = leds_init();
 	if (err) {
 		LOG_ERR("LEDs init failed (err %d)", err);
-		return;
+		return err;
 	}
 	
 	err = buttons_init();
@@ -273,8 +310,17 @@ int main(void)
 		LOG_ERR("Cannot init buttons (err: %d)\n", err);
 	}
 
+	drv_audio_init();
+
+	err = app_event_manager_init();
+	if (err) {
+		LOG_ERR("Unable to init Application Event Manager (%d)", err);
+		return err;
+	}
+
+
 	LOG_INF("ESB BLE Multiprotocol Example, version is %s!\r\n",FW_VERSION);
-#if 1
+#if 0
 	err = app_bt_init(on_bt_callback);
 	if (err) {
 		LOG_ERR("app_bt init failed (err %d)", err);
@@ -289,46 +335,30 @@ int main(void)
 	
 	timeslot_init(on_timeslot_start_stop);
 #endif
-	//uint8_t esb_tx_buf[32] = {0};
-	//int tx_counter = 0;
-	while (1) {
-/*
-	gpio_pin_set(dbg_port, dbg_pins[2], 1);	
-		memcpy(esb_tx_buf, (uint8_t*)&tx_counter, 4);
-		err = app_esb_send(esb_tx_buf, 32);
-		if (err < 0) {
-			LOG_INF("ESB TX upload failed (err %i)", err);
-		}
-		else {
-			LOG_INF("ESB TX upload %.2x-%.2x", (tx_counter& 0xFF), ((tx_counter >> 8) & 0xFF));
-			tx_counter++;
-		}
-	gpio_pin_set(dbg_port, dbg_pins[2], 0);		
 
-		for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
-		{	
-			//gpio_pin_set(leds[0].port, leds[i].pin, 0);
-			gpio_pin_toggle(leds[0].port, leds[i].pin);
-		}
-*/
+	while (1) {
 		k_sleep(K_MSEC(10));
 		if(button_flag)
 		{
 			for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
 			{	
 				gpio_pin_set(leds[0].port, leds[i].pin, 1);
-				//gpio_pin_toggle(leds[0].port, leds[i].pin);
 			}
+			drv_mic_start();
+			test_pdm_transfer(BLOCK_COUNT*2);
+			drv_mic_stop();
 		}
 		else
 		{
 			for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
 			{	
-				gpio_pin_set(leds[0].port, leds[i].pin, 0);
-				//gpio_pin_toggle(leds[0].port, leds[i].pin);
+				if(gpio_pin_get(leds[0].port, leds[i].pin) == 1)
+				{
+					gpio_pin_set(leds[0].port, leds[i].pin, 0);
+				}
 			}
-		}
-		
+			
+		}	
 		// LOG_INF("ESB BLE Multiprotocol Example is running!\r\n");
 	}
 
