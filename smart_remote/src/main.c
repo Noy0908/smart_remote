@@ -23,7 +23,7 @@ MODIFIED SAMPLE TO INCLUDE EXTENSIONS ++
 #include "drv_mic.h"
 #include "mic_work_event.h"
 
-#define FW_VERSION		"1.2.1"
+#define FW_VERSION		"1.2.5"
 
 #define MOV_LED			DK_LED1
 #define TIMESLOT_LED	DK_LED2
@@ -244,18 +244,18 @@ static void button_pressed(const struct device *dev, struct gpio_callback *cb, u
 
 
 	// wake up device and trigger micphone to work
-	// if(button_flag)
-	// {
-	// 	struct mic_work_event *mic_event = new_mic_work_event();
-	// 	mic_event->type = MIC_STATUS_START;
-	// 	APP_EVENT_SUBMIT(mic_event);
-	// }
-	// else
-	// {
-	// 	struct mic_work_event *mic_event = new_mic_work_event();
-	// 	mic_event->type = MIC_STATUS_STOP;
-	// 	APP_EVENT_SUBMIT(mic_event);
-	// }
+	if(button_flag)
+	{
+		struct mic_work_event *mic_event = new_mic_work_event();
+		mic_event->type = MIC_STATUS_START;
+		APP_EVENT_SUBMIT(mic_event);
+	}
+	else
+	{
+		struct mic_work_event *mic_event = new_mic_work_event();
+		mic_event->type = MIC_STATUS_STOP;
+		APP_EVENT_SUBMIT(mic_event);
+	}
 }
 
 
@@ -318,8 +318,9 @@ int main(void)
 		return err;
 	}
 
-
 	LOG_INF("ESB BLE Multiprotocol Example, version is %s!\r\n",FW_VERSION);
+	LOG_INF("Main thread priority is %d!\r\n",k_thread_priority_get(k_current_get()));
+
 #if 0
 	err = app_bt_init(on_bt_callback);
 	if (err) {
@@ -338,27 +339,27 @@ int main(void)
 
 	while (1) {
 		k_sleep(K_MSEC(10));
-		if(button_flag)
-		{
-			for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
-			{	
-				gpio_pin_set(leds[0].port, leds[i].pin, 1);
-			}
-			drv_mic_start();
-			test_pdm_transfer(BLOCK_COUNT*2);
-			drv_mic_stop();
-		}
-		else
-		{
-			for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
-			{	
-				if(gpio_pin_get(leds[0].port, leds[i].pin) == 1)
-				{
-					gpio_pin_set(leds[0].port, leds[i].pin, 0);
-				}
-			}
+		// if(button_flag)
+		// {
+		// 	for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
+		// 	{	
+		// 		gpio_pin_set(leds[0].port, leds[i].pin, 1);
+		// 	}
+		// 	drv_mic_start();
+		// 	test_pdm_transfer(BLOCK_COUNT*2);
+		// 	drv_mic_stop();
+		// }
+		// else
+		// {
+		// 	for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
+		// 	{	
+		// 		if(gpio_pin_get(leds[0].port, leds[i].pin) == 1)
+		// 		{
+		// 			gpio_pin_set(leds[0].port, leds[i].pin, 0);
+		// 		}
+		// 	}
 			
-		}	
+		// }	
 		// LOG_INF("ESB BLE Multiprotocol Example is running!\r\n");
 	}
 

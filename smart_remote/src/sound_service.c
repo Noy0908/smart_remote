@@ -30,29 +30,35 @@ static void mic_data_handle(void *, void *, void *)
 
     LOG_INF("Sound service start, wait for PCM data......");
 
+	/** suspend the thread until we received a start event*/
+	k_thread_suspend(k_current_get());
+
     while(1)
     {
         int frame_size;
-	    uint8_t frame_buf[MAX_BLOCK_SIZE] = {0};
+	    uint8_t frame_buf[MAX_BLOCK_SIZE/4 + 3] = {0};
 
         size = read_audio_data(&buffer, READ_TIMEOUT);
         if(size)
         {
             dvi_adpcm_encode(buffer, size, frame_buf, &frame_size,&m_adpcm_state, true);
-            LOG_INF("ADPCM buffer %p of %u bytes",  frame_buf, frame_size);
+            LOG_INF("ADPCM buffer got %u bytes", frame_size);
 	        LOG_HEXDUMP_INF(frame_buf,frame_size,"ADPCM data");
 
             free_audio_memory(buffer);
 
             // send_frame_by_esb();
         }
+
+		// LOG_INF("Sound service start, wait for PCM data......");
+		// k_sleep(K_MSEC(1000));
     }
 }
 
 
-// K_THREAD_DEFINE(sound_service, SOUND_STACK_SIZE,
-//                 mic_data_handle, NULL, NULL, NULL,
-//                 K_PRIO_PREEMPT(7), 0, 0);
+K_THREAD_DEFINE(sound_service, SOUND_STACK_SIZE,
+                mic_data_handle, NULL, NULL, NULL,
+                K_PRIO_PREEMPT(7), 0, 0);
 
 
 extern void turn_on_off_led(bool onOff);
@@ -64,16 +70,21 @@ static bool mic_work_event_handler(const struct app_event_header *aeh)
 		if (event->type == MIC_STATUS_START) 
 		{
             LOG_INF("Micphone start to work!");
-            turn_on_off_led(true);
-
 			drv_mic_start();
-			test_pdm_transfer(BLOCK_COUNT);
+
+			k_thread_resume(sound_service);
+			
+			turn_on_off_led(true);
+			// test_pdm_transfer(BLOCK_COUNT);
 		}
 		else if(event->type == MIC_STATUS_STOP)
 		{
             LOG_INF("Micphone stop to work!");
-            turn_on_off_led(false);
 			drv_mic_stop();
+
+			k_thread_suspend(sound_service);
+
+            turn_on_off_led(false);
 		}
 
 		return true;

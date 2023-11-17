@@ -50,7 +50,7 @@ static void mic_power_off(void)
 	}
 }
 
-static dvi_adpcm_state_t    adpcm_state;
+// static dvi_adpcm_state_t    adpcm_state;
 int drv_audio_init(void)
 {
 	int ret;
@@ -101,7 +101,7 @@ int drv_audio_init(void)
 	LOG_INF("PCM output rate: %u, channels: %u",
 		cfg.streams[0].pcm_rate, cfg.channel.req_num_chan);
 
-	dvi_adpcm_init_state(&adpcm_state);			//for test
+	// dvi_adpcm_init_state(&adpcm_state);			//for test
 
 	return 0;
 }
@@ -174,8 +174,8 @@ uint32_t read_audio_data(void **buffer, int32_t timeout)
 		return ret;
 	}
 
-	LOG_INF("Got pcm buffer %p of %u bytes", buffer, size);
-	LOG_HEXDUMP_INF(buffer,size,"PCM data");
+	LOG_INF("Got pcm buffer %p of %u bytes", *buffer, size);
+	// LOG_HEXDUMP_INF(*buffer,size,"PCM data");
 
 	return size;
 }
