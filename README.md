@@ -9,5 +9,5 @@ The example can run ESB in either PTX or PRX mode, and is compatible with the st
 Requirements
 ************
 
-- nRF Connect SDK v2.3.0
-- nRF52 series development kit
+- nRF Connect SDK v2.5.0
+- thingy52 as smart remote and nRF52840 as dongle.
