@@ -2,7 +2,7 @@
 #include <zephyr/audio/dmic.h>
 #include <zephyr/logging/log.h>
 #include "sound_service.h"
-#include "drv_mic.h"
+// #include "drv_mic.h"
 #include "dvi_adpcm.h"
 #include "mic_work_event.h"
 
@@ -14,14 +14,25 @@ LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
 /* Milliseconds to wait for a block to be read. */
 #define READ_TIMEOUT            1000
 
+/* Driver will allocate blocks from this slab to save adpcm data into them.
+ * Application, after getting a given block then push it to the esb send message queue,
+ * needs to free that block.
+ */
 
-// K_MSGQ_DEFINE(sound_queue, 4, BLOCK_COUNT, 4);
+K_MEM_SLAB_DEFINE(adpcm_slab, ADPCM_BLOCK_SIZE, ADPCM_BLOCK_COUNT, 4);
+
+
+K_MSGQ_DEFINE(adpcm_queue, 4, ADPCM_BLOCK_COUNT, 4);
 
 
 static dvi_adpcm_state_t    m_adpcm_state;
 
+/** this pointer variable used for transport the message queue to ESB thread.*/
+void *block_ptr = NULL;
+
 static void mic_data_handle(void *, void *, void *)
 {
+	int err = 0;
     void *buffer;
 	uint32_t size;
     // int ret = 0;
@@ -36,23 +47,43 @@ static void mic_data_handle(void *, void *, void *)
     while(1)
     {
         int frame_size;
-	    uint8_t frame_buf[MAX_BLOCK_SIZE/4 + 3] = {0};
+	    // uint8_t frame_buf[MAX_BLOCK_SIZE/4 + 3] = {0};
 
+		
         size = read_audio_data(&buffer, READ_TIMEOUT);
         if(size)
         {
-            dvi_adpcm_encode(buffer, size, frame_buf, &frame_size,&m_adpcm_state, true);
-            LOG_INF("ADPCM buffer got %u bytes", frame_size);
-	        LOG_HEXDUMP_INF(frame_buf,frame_size,"ADPCM data");
-
+			if(k_mem_slab_alloc(&adpcm_slab, (void **) &block_ptr, K_MSEC(100)) == 0)
+			{
+				// memset(block_ptr, 0, 400);
+				dvi_adpcm_encode(buffer, size, block_ptr, &frame_size,&m_adpcm_state, true);
+				LOG_INF("ADPCM buffer got %p of %u bytes", (void *) block_ptr, frame_size);
+				// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
+				/** send adpcm data to esb queue, send the data pointer to another thread */
+			#if 1
+				err = k_msgq_put(&adpcm_queue, &block_ptr, K_MSEC(100));
+				if (err) {
+					LOG_ERR("Message sent error: %d", err);
+				}
+			#else
+				k_mem_slab_free(&adpcm_slab, block_ptr);
+			#endif
+			} 
+			else 
+			{
+				LOG_ERR("Memory allocation time-out");
+			}
             free_audio_memory(buffer);
-
-            // send_frame_by_esb();
         }
 
 		// LOG_INF("Sound service start, wait for PCM data......");
 		// k_sleep(K_MSEC(1000));
     }
+}
+
+void free_adpcm_memory(void *buffer)
+{
+	k_mem_slab_free(&adpcm_slab, buffer);
 }
 
 

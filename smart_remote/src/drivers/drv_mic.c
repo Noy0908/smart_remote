@@ -174,7 +174,7 @@ uint32_t read_audio_data(void **buffer, int32_t timeout)
 		return ret;
 	}
 
-	LOG_INF("Got pcm buffer %p of %u bytes", *buffer, size);
+	// LOG_INF("Got pcm buffer %p of %u bytes", *buffer, size);
 	// LOG_HEXDUMP_INF(*buffer,size,"PCM data");
 
 	return size;

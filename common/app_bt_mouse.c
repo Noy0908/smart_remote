@@ -85,7 +85,7 @@ BT_HIDS_DEF(hids_obj,
 	    INPUT_REP_MOVEMENT_LEN,
 	    INPUT_REP_MEDIA_PLAYER_LEN);
 
-static struct k_work hids_work;
+struct k_work hids_work;
 
 struct mouse_pos {
 	int16_t x_val;
@@ -606,8 +606,8 @@ static void mouse_handler(struct k_work *work)
 {
 	struct mouse_pos pos;
 
-	k_msgq_get(&hids_queue, &pos, K_NO_WAIT);
-	mouse_movement_send(pos.x_val, pos.y_val);
+	// k_msgq_get(&hids_queue, &pos, K_NO_WAIT);
+	// mouse_movement_send(pos.x_val, pos.y_val);
 	/*while (!k_msgq_get(&hids_queue, &pos, K_NO_WAIT)) {
 		mouse_movement_send(pos.x_val, pos.y_val);
 	}*/

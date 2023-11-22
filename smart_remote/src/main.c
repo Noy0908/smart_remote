@@ -22,8 +22,11 @@ MODIFIED SAMPLE TO INCLUDE EXTENSIONS ++
 #include "app_esb.h"
 #include "drv_mic.h"
 #include "mic_work_event.h"
+#include "sound_service.h"
 
-#define FW_VERSION		"1.2.5"
+LOG_MODULE_REGISTER(main, CONFIG_ESB_BT_LOG_LEVEL);
+
+#define FW_VERSION		"1.2.7"
 
 #define MOV_LED			DK_LED1
 #define TIMESLOT_LED	DK_LED2
@@ -35,7 +38,9 @@ MODIFIED SAMPLE TO INCLUDE EXTENSIONS ++
 
 #define ESB_PKT_SIZE	72
 
-LOG_MODULE_REGISTER(main, CONFIG_ESB_BT_LOG_LEVEL);
+K_SEM_DEFINE(esb_sem, 0, 1);
+
+
 
 
 /*
@@ -65,35 +70,53 @@ static bool is_bt_connected = false;
 static uint8_t esb_tx_buf[ESB_PKT_SIZE] = {0};
 static int tx_counter = 0;
 
+extern struct k_msgq adpcm_queue; 
+extern struct k_work hids_work;
 /* Callback function signalling that a timeslot is started or stopped */
 void on_timeslot_start_stop(timeslot_callback_type_t type)
 {
 
 	switch (type) {
 		case APP_TS_STARTED:
-		// gpio_pin_set(dbg_port, dbg_pins[0], 1);
 		// 	dk_set_led_off(TIMESLOT_LED);
 			app_esb_resume();
 
-			if(is_bt_connected) {
+			if(is_bt_connected) //just for test
+			{
+				/* notify thread that data is available */
+    			// k_sem_give(&esb_sem);
+				// k_work_submit(&hids_work);
+			#if 0
+				uint8_t *frame_buffer;
+				if (0 == k_msgq_get(&adpcm_queue, &frame_buffer, K_NO_WAIT))
+				{
+					LOG_INF("ADPCM message queue %p ", (void *) frame_buffer);
+					// int err = app_esb_send(frame_buffer, ADPCM_BLOCK_SIZE);
+					// if (err < 0) {
+					// 	LOG_INF("ESB TX upload failed (err %i)", err);
+					// }
+					// else {
+					// 	LOG_INF("ESB TX upload %.2x-%.2x", frame_buffer[0], (frame_buffer[1]));
+					// }
 
-		// gpio_pin_set(dbg_port, dbg_pins[2], 1);	
+					//free the memory slab
+					free_adpcm_memory(frame_buffer);		
+				}
+			// #else
 				memcpy(esb_tx_buf, (uint8_t*)&tx_counter, 4);
 				int err = app_esb_send(esb_tx_buf, ESB_PKT_SIZE);
 				if (err < 0) {
 					LOG_INF("ESB TX upload failed (err %i)", err);
 				}
 				else {
-					LOG_INF("ESB TX upload %.2x-%.2x", (tx_counter& 0xFF), ((tx_counter >> 8) & 0xFF));
+					// LOG_INF("ESB TX upload %.2x-%.2x", (tx_counter& 0xFF), ((tx_counter >> 8) & 0xFF));
 					tx_counter++;
 				}
-		// gpio_pin_set(dbg_port, dbg_pins[2], 0);	
-		
+			#endif
 			}
 
 			break;
 		case APP_TS_STOPPED:
-		// gpio_pin_set(dbg_port, dbg_pins[0], 0);
 			// dk_set_led_on(TIMESLOT_LED);
 			app_esb_suspend();
 			break;
@@ -106,7 +129,7 @@ void on_esb_callback(app_esb_event_t *event)
 		case APP_ESB_EVT_TX_SUCCESS:
 
 		// gpio_pin_set(dbg_port, dbg_pins[3], 1);
-			LOG_INF("ESB TX success");
+			// LOG_INF("ESB TX success");
 		// gpio_pin_set(dbg_port, dbg_pins[3], 0);
 			break;
 		case APP_ESB_EVT_TX_FAIL:
@@ -135,49 +158,6 @@ void on_bt_callback(app_bt_event_t *event)
 			break;
 	}
 }
-
-// void button_changed(uint32_t button_state, uint32_t has_changed)
-// {
-	
-// 	uint32_t buttons = button_state & has_changed;
-
-	
-// 	if ((buttons & KEY_ON_MASK) && is_bt_connected) {
-// 		dk_set_led_on(MOV_LED);
-// 		app_bt_move(true);
-// 	}
-// 	if (buttons & KEY_OFF_MASK) {
-// 		dk_set_led_off(MOV_LED);
-// 		app_bt_move(false);
-// 	}
-// }
-
-
-// int dbg_pins_init( void )
-// {
-	
-// 	int err;
-	
-// 	if (!device_is_ready(dbg_port)) {
-// 		LOG_ERR("Could not bind to debug port");
-// 		return -ENODEV;
-// 	}
-	
-// 	for (size_t i = 0; i < ARRAY_SIZE(dbg_pins); i++) {
-// 		err = gpio_pin_configure(dbg_port, dbg_pins[i], GPIO_OUTPUT);
-// 		if (err){
-// 					LOG_ERR("Unable to configure dbg%u, err %d", i, err);
-// 					dbg_port = NULL;
-// 					return err;
-// 				}
-                      		
-// 		gpio_pin_set(dbg_port, dbg_pins[i], 0); 
-// 	}
-
-// 	return 0;
-
-// }
-
 
 
 static int leds_init(void)
@@ -233,7 +213,7 @@ static void button_pressed(const struct device *dev, struct gpio_callback *cb, u
 	// }
 	button_flag = !button_flag;
 	// if (button_flag && is_bt_connected) {
-	// 	app_bt_move(true);
+		// app_bt_move(true);
 	// }
 
 	// if (!button_flag) {
@@ -289,15 +269,10 @@ static int buttons_init( void )
 	return 0;
 }
 
+extern volatile bool m_in_timeslot;
 int main(void)
 {
 	int err;
-
-	// err= dbg_pins_init();
-	// if (err) {
-	// 	LOG_ERR("Debug pins failed (err %d)", err);
-	// 	return;
-	// }
 
 	err = leds_init();
 	if (err) {
@@ -321,46 +296,50 @@ int main(void)
 	LOG_INF("ESB BLE Multiprotocol Example, version is %s!\r\n",FW_VERSION);
 	LOG_INF("Main thread priority is %d!\r\n",k_thread_priority_get(k_current_get()));
 
-#if 0
+#if 1
 	err = app_bt_init(on_bt_callback);
 	if (err) {
 		LOG_ERR("app_bt init failed (err %d)", err);
-		return;
+		return err;
 	}
 
 	err = app_esb_init(APP_ESB_MODE_PTX, on_esb_callback);
 	if (err) {
 		LOG_ERR("app_esb init failed (err %d)", err);
-		return;
+		return err;
 	}
 	
 	timeslot_init(on_timeslot_start_stop);
 #endif
 
-	while (1) {
-		k_sleep(K_MSEC(10));
-		// if(button_flag)
-		// {
-		// 	for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
-		// 	{	
-		// 		gpio_pin_set(leds[0].port, leds[i].pin, 1);
-		// 	}
-		// 	drv_mic_start();
-		// 	test_pdm_transfer(BLOCK_COUNT*2);
-		// 	drv_mic_stop();
-		// }
-		// else
-		// {
-		// 	for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
-		// 	{	
-		// 		if(gpio_pin_get(leds[0].port, leds[i].pin) == 1)
-		// 		{
-		// 			gpio_pin_set(leds[0].port, leds[i].pin, 0);
-		// 		}
-		// 	}
-			
-		// }	
+	while (1) {		
+#if 1
+		// k_sem_take(&esb_sem, K_FOREVER);
+		if(get_timeslot_status() && is_bt_connected) 
+		{
+			uint8_t *frame_buffer;
+			if (0 == k_msgq_get(&adpcm_queue, &frame_buffer, K_MSEC(10)))
+			{
+				LOG_INF("ADPCM message queue %p ", (void *) frame_buffer);
+				// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
+				int err = app_esb_send(frame_buffer, ADPCM_BLOCK_SIZE);
+				if (err < 0) {
+					LOG_INF("ESB TX upload failed (err %i)", err);
+				}
+				else {
+					LOG_INF("ESB TX upload %.2x-%.2x", frame_buffer[0], (frame_buffer[1]));
+				}
+
+				//free the memory slab
+				free_adpcm_memory(frame_buffer);		
+			}
+		}
+		else
+		{
+			k_sleep(K_MSEC(10));
+		}		
 		// LOG_INF("ESB BLE Multiprotocol Example is running!\r\n");
+#endif
 	}
 
 	return 0;

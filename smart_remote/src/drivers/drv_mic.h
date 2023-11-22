@@ -13,7 +13,7 @@
 
 #define MAX_BLOCK_SIZE      BLOCK_SIZE(MAX_SAMPLE_RATE, 1)
 
-#define BLOCK_COUNT         20
+#define BLOCK_COUNT         10
 
 /**@brief Compressed audio frame representation.
  */

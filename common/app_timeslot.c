@@ -273,6 +273,13 @@ void timeslot_init(timeslot_callback_t callback)
 	schedule_request(REQ_MAKE_REQUEST);
 }
 
+
+bool get_timeslot_status(void)
+{
+	return m_in_timeslot;
+}
+
+
 K_THREAD_DEFINE(mpsl_nonpreemptible_thread_id, STACKSIZE,
 		mpsl_nonpreemptible_thread, NULL, NULL, NULL,
 		K_PRIO_COOP(MPSL_THREAD_PRIO), 0, 0);

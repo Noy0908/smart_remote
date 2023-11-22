@@ -6,4 +6,6 @@ typedef void (*timeslot_callback_t)(timeslot_callback_type_t type);
 
 void timeslot_init(timeslot_callback_t callback);
 
+bool get_timeslot_status(void);
+
 #endif
