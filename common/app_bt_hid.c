@@ -1,9 +1,7 @@
-#include "circle_test.h" 
+// #include "circle_test.h" 
 
 #include <nrfx_timer.h>
-
-#include "app_bt_mouse.h"
-
+#include "app_bt_hid.h"
 #include <zephyr/types.h>
 #include <stddef.h>
 #include <string.h>
@@ -14,22 +12,19 @@
 #include <zephyr/drivers/gpio.h>
 #include <soc.h>
 #include <assert.h>
-
 #include <zephyr/logging/log.h>
-
 #include <zephyr/settings/settings.h>
-
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/hci.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/gatt.h>
-
 #include <zephyr/bluetooth/services/bas.h>
 #include <bluetooth/services/hids.h>
 #include <zephyr/bluetooth/services/dis.h>
-
 #include <dk_buttons_and_leds.h>
+
+LOG_MODULE_REGISTER(app_bt_hid, CONFIG_ESB_BT_LOG_LEVEL);
 
 /** @brief Symbol specifying timer instance to be used. */
 #define TIMER_INST_IDX 3
@@ -39,6 +34,8 @@
 
 #define BASE_USB_HID_SPEC_VERSION   0x0101
 
+
+#if 1
 /* Number of pixels by which the cursor is moved when a button is pushed. */
 #define MOVEMENT_SPEED              5
 /* Number of input reports in this application. */
@@ -61,20 +58,20 @@
 #define INPUT_REP_REF_MOVEMENT_ID   2
 /* Id of reference to Mouse Input Report containing media player data. */
 #define INPUT_REP_REF_MPLAYER_ID    3
-
+#endif
 /* HIDs queue size. */
 #define HIDS_QUEUE_SIZE 10
 
 #define REPORT_RATE	8000  //8ms
 
-LOG_MODULE_REGISTER(app_bt_mouse, CONFIG_ESB_BT_LOG_LEVEL);
+
 
 static app_bt_callback_t m_callback;
 
 static app_bt_event_t 	  m_event;
 
 
-static const uint8_t  dbg_pins[] = {31, 30, 29, 28, 04, 03};
+// static const uint8_t  dbg_pins[] = {31, 30, 29, 28, 04, 03};
 
 // static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
 
@@ -126,6 +123,8 @@ static struct conn_mode {
 
 static struct k_work adv_work;
 
+
+#if 0
 /**************************  Timer Functions ********************************/
 
 static nrfx_timer_t timer_inst = NRFX_TIMER_INSTANCE(TIMER_INST_IDX);
@@ -161,9 +160,7 @@ static void timer_handler(nrf_timer_event_t event_type, void * p_context)
 			return;
 		}
 		
-			k_work_submit(&hids_work);
-
-
+		k_work_submit(&hids_work);
     }
 }
 
@@ -213,6 +210,8 @@ void timer_init(void)
 #endif
 
 }
+
+#endif
 
 /*************************************************************************************************************/		  		  
 
@@ -602,35 +601,40 @@ static void mouse_movement_send(int16_t x_delta, int16_t y_delta)
 }
 
 
-static void mouse_handler(struct k_work *work)
+static void hid_handler(struct k_work *work)
 {
+#if 0
 	struct mouse_pos pos;
 
-	// k_msgq_get(&hids_queue, &pos, K_NO_WAIT);
-	// mouse_movement_send(pos.x_val, pos.y_val);
+	k_msgq_get(&hids_queue, &pos, K_NO_WAIT);
+	mouse_movement_send(pos.x_val, pos.y_val);
 	/*while (!k_msgq_get(&hids_queue, &pos, K_NO_WAIT)) {
 		mouse_movement_send(pos.x_val, pos.y_val);
 	}*/
+#else
+	/** send audio monitor commander to TV*/
+
+#endif
 }
 
 
-void app_bt_move(bool mov)
-{
-	struct mouse_pos pos;
+// void app_bt_move(bool mov)
+// {
+// 	struct mouse_pos pos;
 	
-	memset(&pos, 0, sizeof(struct mouse_pos));
+// 	memset(&pos, 0, sizeof(struct mouse_pos));
 
-	if(mov)
-	{
-		timer_start(REPORT_RATE);
-	}
-	else
-	{
-		timer_stop();
-	}
+// 	if(mov)
+// 	{
+// 		timer_start(REPORT_RATE);
+// 	}
+// 	else
+// 	{
+// 		timer_stop();
+// 	}
 
 
-}
+// }
 
 
 int app_bt_init(app_bt_callback_t callback)
@@ -641,7 +645,7 @@ int app_bt_init(app_bt_callback_t callback)
 
 	m_callback = callback;
 
-	timer_init();
+	// timer_init();		
 
 	/* DIS initialized at system boot with SYS_INIT macro. */
 	hid_init();
@@ -654,7 +658,7 @@ int app_bt_init(app_bt_callback_t callback)
 
 	LOG_INF("Bluetooth initialized");
 
-	k_work_init(&hids_work, mouse_handler);
+	k_work_init(&hids_work, hid_handler);
 	k_work_init(&adv_work, advertising_process);
 
 	if (IS_ENABLED(CONFIG_SETTINGS)) {

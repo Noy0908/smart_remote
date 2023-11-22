@@ -15,7 +15,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/types.h>
 
-LOG_MODULE_REGISTER(esb_prx, CONFIG_ESB_PRX_APP_LOG_LEVEL);
+LOG_MODULE_REGISTER(smart_dongle, CONFIG_ESB_PRX_APP_LOG_LEVEL);
+
+#define FW_VERSION				"1.0.0"
 
 static const struct gpio_dt_spec leds[] = {
 	GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios),
@@ -32,7 +34,7 @@ BUILD_ASSERT(DT_SAME_NODE(DT_GPIO_CTLR(DT_ALIAS(led0), gpios),
 			  DT_GPIO_CTLR(DT_ALIAS(led3), gpios)),
 	     "All LEDs must be on the same port");
 
-static struct esb_payload rx_payload;
+
 static struct esb_payload tx_payload = ESB_CREATE_PAYLOAD(0,
 	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17);
 
@@ -58,7 +60,7 @@ static int leds_init(void)
 }
 
 
-
+extern struct k_sem esb_sem;
 void event_handler(struct esb_evt const *event)
 {
 	switch (event->evt_id) {
@@ -69,16 +71,19 @@ void event_handler(struct esb_evt const *event)
 		LOG_DBG("TX FAILED EVENT");
 		break;
 	case ESB_EVENT_RX_RECEIVED:
-		if (esb_read_rx_payload(&rx_payload) == 0) {
-			LOG_INF("Packet received, len %d : "
-				"0x%02x, 0x%02x, 0x%02x, 0x%02x ",				
-				rx_payload.length, rx_payload.data[0],
-				rx_payload.data[1], rx_payload.data[2],
-				rx_payload.data[3] );
-			gpio_pin_toggle(leds[0].port, leds[0].pin);			
-		} else {
-			LOG_ERR("Error while reading rx packet");
-		}
+		/* notify thread that data is available */
+    	k_sem_give(&esb_sem);
+
+		// if (esb_read_rx_payload(&rx_payload) == 0) {
+		// 	LOG_INF("Packet received, len %d : "
+		// 		"0x%02x, 0x%02x, 0x%02x, 0x%02x ",				
+		// 		rx_payload.length, rx_payload.data[0],
+		// 		rx_payload.data[1], rx_payload.data[2],
+		// 		rx_payload.data[3] );
+		// 	gpio_pin_toggle(leds[0].port, leds[0].pin);			
+		// } else {
+		// 	LOG_ERR("Error while reading rx packet");
+		// }
 		break;
 	}
 }
@@ -112,7 +117,7 @@ int clocks_start(void)
 		}
 	} while (err);
 
-	LOG_DBG("HF clock started");
+	LOG_DBG("HF clock started, fw_version is %s", FW_VERSION);
 	return 0;
 }
 

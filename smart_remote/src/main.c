@@ -17,7 +17,7 @@ MODIFIED SAMPLE TO INCLUDE EXTENSIONS ++
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/gpio.h> 
 // #include <dk_buttons_and_leds.h>
-#include "app_bt_mouse.h"
+#include "app_bt_hid.h"
 #include "app_timeslot.h"
 #include "app_esb.h"
 #include "drv_mic.h"
@@ -67,11 +67,11 @@ static const struct gpio_dt_spec leds[] = {
 
 static bool is_bt_connected = false;
 
-static uint8_t esb_tx_buf[ESB_PKT_SIZE] = {0};
-static int tx_counter = 0;
+// static uint8_t esb_tx_buf[ESB_PKT_SIZE] = {0};
+// static int tx_counter = 0;
 
 extern struct k_msgq adpcm_queue; 
-extern struct k_work hids_work;
+
 /* Callback function signalling that a timeslot is started or stopped */
 void on_timeslot_start_stop(timeslot_callback_type_t type)
 {
@@ -269,7 +269,6 @@ static int buttons_init( void )
 	return 0;
 }
 
-extern volatile bool m_in_timeslot;
 int main(void)
 {
 	int err;
