@@ -20,7 +20,7 @@
 
 LOG_MODULE_REGISTER(smart_dongle, CONFIG_ESB_PRX_APP_LOG_LEVEL);
 
-#define FW_VERSION				"1.1.0"
+#define FW_VERSION				"1.2.1"
 
 dvi_adpcm_state_t    m_adpcm_state;
 
@@ -104,7 +104,7 @@ int clocks_start(void)
 
 
 
-void main(void)
+int main(void)
 {
 	int err;
 
@@ -112,12 +112,12 @@ void main(void)
 
 	err = clocks_start();
 	if (err) {
-		return;
+		return err;
 	}
 
 	err = leds_init();
 	if (err) {
-		return;
+		return err;
 	}
 
 	dvi_adpcm_init_state(&m_adpcm_state);
@@ -125,7 +125,7 @@ void main(void)
 	err = esb_initialize();
 	if (err) {
 		LOG_ERR("ESB initialization failed, err %d", err);
-		return;
+		return err;
 	}
 
 	LOG_INF("Initialization complete");
@@ -133,7 +133,7 @@ void main(void)
 	err = esb_write_payload(&tx_payload);
 	if (err) {
 		LOG_ERR("Write payload, err %d", err);
-		return;
+		return err;
 	}
 
 	LOG_INF("Setting up for packet receiption");
@@ -141,11 +141,9 @@ void main(void)
 	err = esb_start_rx();
 	if (err) {
 		LOG_ERR("RX setup failed, err %d", err);
-		return;
+		return err;
 	}
 
-	
-
 	/* return to idle thread */
-	return;
+	return 0;
 }

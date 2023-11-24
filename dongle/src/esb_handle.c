@@ -8,20 +8,6 @@
 LOG_MODULE_DECLARE(smart_dongle, CONFIG_ESB_PRX_APP_LOG_LEVEL);
 
 
-#define MAX_SAMPLE_RATE     16000
-#define SAMPLE_BIT_WIDTH    16
-#define BYTES_PER_SAMPLE    sizeof(int16_t)
-
-/* Size of a block for 10 ms of audio data. */
-#define BLOCK_SIZE(_sample_rate, _number_of_channels) \
-	(BYTES_PER_SAMPLE * (_sample_rate / 100) * _number_of_channels)
-
-#define MAX_BLOCK_SIZE              BLOCK_SIZE(MAX_SAMPLE_RATE, 1)
-// #define ESB_BLOCK_SIZE              (MAX_BLOCK_SIZE/4 + 3)
-
-#define ESB_BLOCK_SIZE              MAX_BLOCK_SIZE
-#define ESB_BLOCK_COUNT             30
-
 /* Driver will allocate blocks from this slab to save adpcm data into them.
  * Application, after getting a given block then push it to the esb send message queue,
  * needs to free that block.
@@ -41,7 +27,7 @@ static void event_handler(struct esb_evt const *event)
 {
 	switch (event->evt_id) {
 	case ESB_EVENT_TX_SUCCESS:
-		LOG_DBG("TX SUCCESS EVENT");
+		// LOG_DBG("TX SUCCESS EVENT");
 		break;
 	case ESB_EVENT_TX_FAILED:
 		LOG_DBG("TX FAILED EVENT");
@@ -128,7 +114,7 @@ void esb_buffer_handle(void)
         {
             dvi_adpcm_decode(rx_payload.data, rx_payload.length, block_ptr, &frame_size, &m_adpcm_state);
             LOG_INF("ADPCM buffer decompress %u bytes",  frame_size);
-            LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
+            // LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
 
             /** send the PCM data to USB audio driver*/
             err = k_msgq_put(&esb_queue, &block_ptr, K_NO_WAIT);
