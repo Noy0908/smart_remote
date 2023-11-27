@@ -17,6 +17,9 @@
 #include "esb_handle.h"
 #include "dvi_adpcm.h"
 
+#include <zephyr/usb/usb_device.h>
+#include <zephyr/usb/class/usb_audio.h>
+
 
 LOG_MODULE_REGISTER(smart_dongle, CONFIG_ESB_PRX_APP_LOG_LEVEL);
 
@@ -60,6 +63,16 @@ static int leds_init(void)
 		}
 
 		gpio_pin_set(leds[0].port, leds[i].pin, 0);
+	}
+
+	return 0;
+}
+
+
+int leds_toggle(void)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(leds); i++) {
+		gpio_pin_toggle(leds[0].port, leds[i].pin);
 	}
 
 	return 0;

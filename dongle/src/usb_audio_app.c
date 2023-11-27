@@ -21,13 +21,17 @@ static const struct device *const mic_dev = DEVICE_DT_GET_ONE(usb_audio_mic);
 extern struct k_msgq esb_queue;
 
 
+extern int leds_toggle(void);
+
+
 static void data_write(const struct device *dev)
 {
+	// LOG_INF("data were requested from the device and may be send to the Host!");
+	// leds_toggle();
+#if 1
     int ret = 0;
     void *frame_buffer = NULL;
     size_t data_out_size = 0;
-
-    LOG_INF("data were requested from the device and may be send to the Host!");
      
     struct net_buf *buf_out;
 
@@ -37,10 +41,10 @@ static void data_write(const struct device *dev)
 		LOG_ERR("Failed to allocate data buffer");
 		return;
 	}
-	LOG_INF("netbuf_size = %d\t", buf_out->size);
+	// LOG_INF("netbuf_size = %d\t", buf_out->size);
     if(k_msgq_get(&esb_queue, &frame_buffer, K_NO_WAIT) != 0)
     {
-        LOG_WRN("USB audio TX underrun");
+        // LOG_WRN("USB audio TX underrun");
 		net_buf_unref(buf_out);
 		return;
     }
@@ -49,6 +53,8 @@ static void data_write(const struct device *dev)
     // LOG_HEXDUMP_INF(frame_buffer, 8, "Receive audio queue");
     
     memcpy(buf_out->data, frame_buffer, MAX_BLOCK_SIZE);
+	/** copy the previous data to another channel*/
+	memcpy(&(buf_out->data[MAX_BLOCK_SIZE]), frame_buffer, MAX_BLOCK_SIZE);
 	data_out_size =  buf_out->size;
      //free the memory slab
     free_esb_slab_memory(frame_buffer);	
@@ -60,12 +66,16 @@ static void data_write(const struct device *dev)
 			LOG_WRN("USB TX failed, ret: %d", ret);
 			net_buf_unref(buf_out);
 		}
-		// LOG_INF("usb_frame_size_audio = %d\t", data_out_size);
+		else
+		{	
+			LOG_INF("usb audio send %d bytes succeed!\t", data_out_size);
+		}
 	} 
     else 
     {
 		LOG_WRN("Wrong size write: %d", data_out_size);
 	}
+#endif
 }
 
 static void feature_update(const struct device *dev,
@@ -80,11 +90,36 @@ static void feature_update(const struct device *dev,
 	}
 }
 
+
+
 static const struct usb_audio_ops mic_ops = {
 	.data_request_cb = data_write,
 	// .data_written_cb = 
 	.feature_update_cb = feature_update,
 };
+
+
+// void usb_audio_init(void)
+// {
+// 	int ret;
+
+// 	if (!device_is_ready(mic_dev)) {
+// 		LOG_ERR("Device USB Microphone is not ready");
+// 		return;
+// 	}
+// 	LOG_INF("Found USB Microphone Device");
+
+// 	usb_audio_register(mic_dev, &mic_ops);
+
+// 	ret = usb_enable(NULL);
+// 	if (ret != 0) {
+// 		LOG_ERR("Failed to enable USB");
+// 		return;
+// 	}
+
+// 	LOG_INF("USB enabled");
+// 	LOG_INF("mic_frame_size = %d\t ", usb_audio_get_in_frame_size(mic_dev));
+// }
 
 
 
@@ -96,7 +131,6 @@ static void esb_audio_data_handle(void *, void *, void *)
 		LOG_ERR("Device USB Microphone is not ready");
 		return;
 	}
-
 	LOG_INF("Found USB Microphone Device");
 
 	usb_audio_register(mic_dev, &mic_ops);
@@ -108,7 +142,8 @@ static void esb_audio_data_handle(void *, void *, void *)
 	}
 
 	LOG_INF("USB enabled");
-	LOG_INF("usb_frame_size_audio = %d\n\n", usb_audio_get_in_frame_size(mic_dev));
+	LOG_INF("mic_frame_size = %d\t ", usb_audio_get_in_frame_size(mic_dev));
+
 #if 0
     while(1)
     {

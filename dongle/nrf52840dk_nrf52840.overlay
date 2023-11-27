@@ -21,6 +21,6 @@
 		compatible = "usb-audio-mic";
 		feature-mute;
 		channel-l;
-		// channel-r;
+		channel-r;
 	};
 };
