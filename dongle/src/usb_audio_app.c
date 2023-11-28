@@ -24,9 +24,28 @@ extern struct k_msgq esb_queue;
 extern int leds_toggle(void);
 
 
+
+
+/*
+* single channel transform to dual channels.
+*
+* @param[in] src_audio 	Pointer to the single channel source pcm stream.
+*			 frames	   	Length of the stram buffer
+*			 dst_audio	Pointer to the target dual channel pcm stream
+*/
+static void mono_to_stereo(int16_t* src_audio, int frames, int16_t* dst_audio) 
+{
+    for (int i = 0; i < frames; i++) 
+    {
+        dst_audio[2 * i] = src_audio[i];
+        dst_audio[2 * i + 1] = src_audio[i];
+    }
+}
+
+
 static void data_write(const struct device *dev)
 {
-	// LOG_INF("data were requested from the device and may be send to the Host!");
+	LOG_INF("data were requested from the device and may be send to the Host!");
 	// leds_toggle();
 #if 1
     int ret = 0;
@@ -51,10 +70,11 @@ static void data_write(const struct device *dev)
     
     /** USB audio driver handle the pcm stream*/
     // LOG_HEXDUMP_INF(frame_buffer, 8, "Receive audio queue");
+	mono_to_stereo((int16_t*) frame_buffer, MAX_BLOCK_SIZE, (int16_t*)buf_out->data);
     
-    memcpy(buf_out->data, frame_buffer, MAX_BLOCK_SIZE);
-	/** copy the previous data to another channel*/
-	memcpy(&(buf_out->data[MAX_BLOCK_SIZE]), frame_buffer, MAX_BLOCK_SIZE);
+    // memcpy(buf_out->data, frame_buffer, MAX_BLOCK_SIZE);
+	// /** copy the previous data to another channel*/
+	// memcpy(&(buf_out->data[MAX_BLOCK_SIZE]), frame_buffer, MAX_BLOCK_SIZE);
 	data_out_size =  buf_out->size;
      //free the memory slab
     free_esb_slab_memory(frame_buffer);	

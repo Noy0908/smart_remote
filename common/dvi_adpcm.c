@@ -203,7 +203,7 @@ int dvi_adpcm_encode(void *in_buf, int in_size, void *out_buf, int *out_size, vo
 
     index += indexTable[delta];
     if ( index < 0 ) index = 0;
-    if ( index > stepsizeTableSize ) index = stepsizeTableSize-1;
+    if ( index >= stepsizeTableSize ) index = stepsizeTableSize-1;
     step = stepsizeTable[index];
 
     /* Step 6 - Output value */
@@ -270,7 +270,7 @@ int dvi_adpcm_decode(void *in_buf, int in_size, void *out_buf, int *out_size, vo
     /* Step 2 - Find new index value (for later) */
     index += indexTable[delta];
     if ( index < 0 ) index = 0;
-    if ( index > stepsizeTableSize ) index = stepsizeTableSize;
+    if ( index >= stepsizeTableSize ) index = stepsizeTableSize;
 
     /* Step 3 - Separate sign and magnitude */
     sign = delta & 8;

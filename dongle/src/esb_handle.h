@@ -10,12 +10,12 @@
 
 /* Size of a block for 10 ms of audio data. */
 #define BLOCK_SIZE(_sample_rate, _number_of_ms) \
-	(BYTES_PER_SAMPLE * (_sample_rate / 1000) * _number_of_ms * 3)
+	(BYTES_PER_SAMPLE * (_sample_rate / 1000) * _number_of_ms)
 
 #define MAX_BLOCK_SIZE              BLOCK_SIZE(MAX_SAMPLE_RATE, 1)
 
 #define ESB_BLOCK_SIZE              MAX_BLOCK_SIZE
-#define ESB_BLOCK_COUNT             30
+#define ESB_BLOCK_COUNT             60
 
 
 int esb_initialize(void);
