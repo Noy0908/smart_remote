@@ -114,7 +114,7 @@ void esb_buffer_handle(void)
         {
 		#if 1
             dvi_adpcm_decode(rx_payload.data, rx_payload.length, block_ptr, &frame_size, &m_adpcm_state);
-            LOG_INF("ADPCM buffer decompress %u bytes",  frame_size);
+            LOG_INF("Packet received: %d ,ADPCM buffer decompress %u bytes", rx_payload.length, frame_size);
             // LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
 		#else
 			memcpy(block_ptr, rx_payload.data, rx_payload.length);
