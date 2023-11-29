@@ -4,6 +4,7 @@
 #include <zephyr/usb/class/usb_audio.h>
 #include "usb_audio_app.h"
 #include "esb_handle.h"
+#include "drv_flash.h"
 
 LOG_MODULE_DECLARE(smart_dongle, CONFIG_ESB_PRX_APP_LOG_LEVEL);
 
@@ -74,9 +75,6 @@ static void data_write(const struct device *dev)
     // LOG_HEXDUMP_INF(frame_buffer, 8, "Receive audio queue");
 	mono_to_stereo((int16_t*) frame_buffer, MAX_BLOCK_SIZE/2, (int16_t*)buf_out->data);
     
-    // memcpy(buf_out->data, frame_buffer, MAX_BLOCK_SIZE);
-	// /** copy the previous data to another channel*/
-	// memcpy(&(buf_out->data[MAX_BLOCK_SIZE]), frame_buffer, MAX_BLOCK_SIZE);
 	data_out_size =  buf_out->size;
      //free the memory slab
     free_esb_slab_memory(frame_buffer);	
@@ -116,7 +114,6 @@ static void feature_update(const struct device *dev,
 
 static const struct usb_audio_ops mic_ops = {
 	.data_request_cb = data_write,
-	// .data_written_cb = 
 	.feature_update_cb = feature_update,
 };
 
@@ -148,6 +145,9 @@ static const struct usb_audio_ops mic_ops = {
 static void esb_audio_data_handle(void *, void *, void *)
 {
 	int ret;
+	static uint32_t total_size = 0;
+
+	// soc_flash_init();
 
 	if (!device_is_ready(mic_dev)) {
 		LOG_ERR("Device USB Microphone is not ready");
@@ -170,38 +170,15 @@ static void esb_audio_data_handle(void *, void *, void *)
     while(1)
     {
         void *frame_buffer = NULL;
-		size_t data_out_size = 0;
+		uint8_t buf_out[MAX_BLOCK_SIZE * 2] = {0};
+		// size_t data_out_size = 0;
 
 		k_msgq_get(&esb_queue, &frame_buffer, K_FOREVER);
-
-		struct net_buf *buf_out;
-		buf_out = net_buf_alloc(&pool_out, K_NO_WAIT);
-		if(buf_out)
+		LOG_INF("received ADPCM decompress stream");
+		mono_to_stereo((int16_t*) frame_buffer, MAX_BLOCK_SIZE/2, (int16_t*)buf_out);	
+		if(0 == soc_flash_write(TEST_PARTITION_OFFSET + total_size, buf_out, MAX_BLOCK_SIZE*2))
 		{
-			LOG_INF("netbuf_size = %d\t", buf_out->size);
-		
-			memcpy(buf_out->data, frame_buffer, USB_FRAME_SIZE_STEREO);
-			data_out_size =  buf_out->size;
-
-			/** USB audio driver handle the pcm stream*/
-			// LOG_HEXDUMP_INF(frame_buffer, 8, "Receive audio queue");
-			if (data_out_size == usb_audio_get_in_frame_size(mic_dev)) 
-			{
-				ret = usb_audio_send(mic_dev, buf_out, data_out_size);
-				if (ret) {
-					LOG_WRN("USB TX failed, ret: %d", ret);
-					net_buf_unref(buf_out);
-				}
-				// LOG_INF("usb_frame_size_audio = %d\t", data_out_size);
-			} 
-			else 
-			{
-				LOG_WRN("Wrong size write: %d", data_out_size);
-			}
-		}
-		else
-		{			
-			LOG_INF("netbuf allocate failed!\t");
+			total_size += MAX_BLOCK_SIZE*2;
 		}
 
         //free the memory slab

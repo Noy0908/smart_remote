@@ -112,10 +112,14 @@ void esb_buffer_handle(void)
 
         if(k_mem_slab_alloc(&esb_slab, (void **) &block_ptr, K_NO_WAIT) == 0)
         {
+		#if 1
             dvi_adpcm_decode(rx_payload.data, rx_payload.length, block_ptr, &frame_size, &m_adpcm_state);
-            // LOG_INF("ADPCM buffer decompress %u bytes",  frame_size);
+            LOG_INF("ADPCM buffer decompress %u bytes",  frame_size);
             // LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
-
+		#else
+			memcpy(block_ptr, rx_payload.data, rx_payload.length);
+			LOG_INF("Packet received, len %d : ",rx_payload.length);
+		#endif
             /** send the PCM data to USB audio driver*/
             err = k_msgq_put(&esb_queue, &block_ptr, K_NO_WAIT);
             if (err) {
