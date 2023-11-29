@@ -55,19 +55,19 @@ static void mic_data_handle(void *, void *, void *)
         {
 			if(k_mem_slab_alloc(&adpcm_slab, (void **) &block_ptr, K_MSEC(100)) == 0)
 			{
-				// memset(block_ptr, 0, 400);
+			#if 0
+				/** do not compress, send pcm stream directly */
+				memcpy(block_ptr, buffer, size);
+			#else
 				dvi_adpcm_encode(buffer, size, block_ptr, &frame_size,&m_adpcm_state, true);
 				// LOG_INF("ADPCM buffer got %p of %u bytes", (void *) block_ptr, frame_size);
 				// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
 				/** send adpcm data to esb queue, send the data pointer to another thread */
-			#if 1
+			#endif
 				err = k_msgq_put(&adpcm_queue, &block_ptr, K_MSEC(100));
 				if (err) {
 					LOG_ERR("Message sent error: %d", err);
 				}
-			#else
-				k_mem_slab_free(&adpcm_slab, block_ptr);
-			#endif
 			} 
 			else 
 			{

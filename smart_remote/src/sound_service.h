@@ -5,6 +5,7 @@
 
 
 #define ADPCM_BLOCK_SIZE            (MAX_BLOCK_SIZE/4 + 3)
+// #define ADPCM_BLOCK_SIZE            MAX_BLOCK_SIZE
 #define ADPCM_BLOCK_COUNT           60
 
 
