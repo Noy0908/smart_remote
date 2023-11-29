@@ -71,8 +71,9 @@ static int leds_init(void)
 
 int leds_toggle(void)
 {
-	for (size_t i = 0; i < ARRAY_SIZE(leds); i++) {
-		gpio_pin_toggle(leds[0].port, leds[i].pin);
+	// for (size_t i = 0; i < ARRAY_SIZE(leds); i++) 
+	{
+		gpio_pin_toggle(leds[0].port, leds[0].pin);
 	}
 
 	return 0;

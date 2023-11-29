@@ -57,7 +57,7 @@ static void mic_data_handle(void *, void *, void *)
 			{
 				// memset(block_ptr, 0, 400);
 				dvi_adpcm_encode(buffer, size, block_ptr, &frame_size,&m_adpcm_state, true);
-				LOG_INF("ADPCM buffer got %p of %u bytes", (void *) block_ptr, frame_size);
+				// LOG_INF("ADPCM buffer got %p of %u bytes", (void *) block_ptr, frame_size);
 				// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
 				/** send adpcm data to esb queue, send the data pointer to another thread */
 			#if 1

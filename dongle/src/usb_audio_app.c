@@ -45,8 +45,10 @@ static void mono_to_stereo(int16_t* src_audio, int frames, int16_t* dst_audio)
 
 static void data_write(const struct device *dev)
 {
-	LOG_INF("data were requested from the device and may be send to the Host!");
-	// leds_toggle();
+	// LOG_INF("data were requested from the device and may be send to the Host!");
+	static uint32_t timeCount = 0;
+	if(0 == (timeCount++ % 50))
+		leds_toggle();
 #if 1
     int ret = 0;
     void *frame_buffer = NULL;
@@ -70,7 +72,7 @@ static void data_write(const struct device *dev)
     
     /** USB audio driver handle the pcm stream*/
     // LOG_HEXDUMP_INF(frame_buffer, 8, "Receive audio queue");
-	mono_to_stereo((int16_t*) frame_buffer, MAX_BLOCK_SIZE, (int16_t*)buf_out->data);
+	mono_to_stereo((int16_t*) frame_buffer, MAX_BLOCK_SIZE/2, (int16_t*)buf_out->data);
     
     // memcpy(buf_out->data, frame_buffer, MAX_BLOCK_SIZE);
 	// /** copy the previous data to another channel*/

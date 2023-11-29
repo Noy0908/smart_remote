@@ -319,15 +319,15 @@ int main(void)
 			uint8_t *frame_buffer;
 			if (0 == k_msgq_get(&adpcm_queue, &frame_buffer, K_MSEC(10)))
 			{
-				LOG_INF("ADPCM message queue %p ", (void *) frame_buffer);
+				// LOG_INF("ADPCM message queue %p ", (void *) frame_buffer);
 				// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
 				int err = app_esb_send(frame_buffer, ADPCM_BLOCK_SIZE);
 				if (err < 0) {
 					LOG_INF("ESB TX upload failed (err %i)", err);
 				}
-				else {
-					LOG_INF("ESB TX upload %.2x-%.2x", frame_buffer[0], (frame_buffer[1]));
-				}
+				// else {
+				// 	LOG_INF("ESB TX upload %.2x-%.2x", frame_buffer[0], (frame_buffer[1]));
+				// }
 
 				//free the memory slab
 				free_adpcm_memory(frame_buffer);		
