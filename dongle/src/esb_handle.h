@@ -14,6 +14,8 @@
 
 #define MAX_BLOCK_SIZE              BLOCK_SIZE(MAX_SAMPLE_RATE, 1)
 
+#define ADPCM_BLOCK_SIZE			(MAX_BLOCK_SIZE/4 + 3)
+
 #define ESB_BLOCK_SIZE              MAX_BLOCK_SIZE
 #define ESB_BLOCK_COUNT             60
 

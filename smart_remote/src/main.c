@@ -316,12 +316,12 @@ int main(void)
 		// k_sem_take(&esb_sem, K_FOREVER);
 		if(get_timeslot_status() && is_bt_connected) 
 		{
-			uint8_t *frame_buffer;
+			char *frame_buffer;
 			if (0 == k_msgq_get(&adpcm_queue, &frame_buffer, K_MSEC(10)))
 			{
 				// LOG_INF("ADPCM message queue %p ", (void *) frame_buffer);
 				// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
-				int err = app_esb_send(frame_buffer, ADPCM_BLOCK_SIZE);
+				int err = app_esb_send(frame_buffer, ESB_BLOCK_SIZE);
 				if (err < 0) {
 					LOG_INF("ESB TX upload failed (err %i)", err);
 				}

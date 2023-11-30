@@ -100,36 +100,38 @@ void esb_buffer_handle(void)
 {
     int err = 0;
     int frame_size = 0;
+	uint8_t adpcm_index = 0;
     struct esb_payload rx_payload;
 
     if (esb_read_rx_payload(&rx_payload) == 0) 
     {
-        // LOG_INF("Packet received, len %d : "
+        LOG_INF("Packet received, len %d ", rx_payload.length);
         //     "0x%02x, 0x%02x, 0x%02x, 0x%02x ",				
         //     rx_payload.length, rx_payload.data[0],
         //     rx_payload.data[1], rx_payload.data[2],
         //     rx_payload.data[3] );
 
-        if(k_mem_slab_alloc(&esb_slab, (void **) &block_ptr, K_NO_WAIT) == 0)
-        {
-		#if 1
-            dvi_adpcm_decode(rx_payload.data, rx_payload.length, block_ptr, &frame_size, &m_adpcm_state);
-            LOG_INF("Packet received: %d ,ADPCM buffer decompress %u bytes", rx_payload.length, frame_size);
-            // LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
-		#else
-			memcpy(block_ptr, rx_payload.data, rx_payload.length);
-			LOG_INF("Packet received, len %d : ",rx_payload.length);
-		#endif
-            /** send the PCM data to USB audio driver*/
-            err = k_msgq_put(&esb_queue, &block_ptr, K_NO_WAIT);
-            if (err) {
-                LOG_ERR("Message sent error: %d", err);
-            }
-        }
-        else 
-        {
-            LOG_ERR("Memory allocation for ESB receive time-out");
-        }	
+		while(adpcm_index + ADPCM_BLOCK_SIZE <= rx_payload.length)
+		{
+			if(k_mem_slab_alloc(&esb_slab, (void **) &block_ptr, K_NO_WAIT) == 0)
+			{
+				dvi_adpcm_decode(&(rx_payload.data[adpcm_index]), ADPCM_BLOCK_SIZE, block_ptr, &frame_size, &m_adpcm_state);
+				LOG_INF("adpcm_index=%d, ADPCMdecompress %u bytes", adpcm_index, frame_size);
+				// LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
+
+				/** send the PCM data to USB audio driver*/
+				err = k_msgq_put(&esb_queue, &block_ptr, K_NO_WAIT);
+				if (err) {
+					LOG_ERR("Message sent error: %d", err);
+				}
+
+				adpcm_index += ADPCM_BLOCK_SIZE;
+			}
+			else 
+			{
+				LOG_ERR("Memory allocation for ESB receive time-out");
+			}	
+		}
     } 
     else 
     {

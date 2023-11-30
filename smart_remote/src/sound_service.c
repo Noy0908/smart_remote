@@ -19,7 +19,7 @@ LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
  * needs to free that block.
  */
 
-K_MEM_SLAB_DEFINE(adpcm_slab, ADPCM_BLOCK_SIZE, ADPCM_BLOCK_COUNT, 4);
+K_MEM_SLAB_DEFINE(adpcm_slab, CONFIG_ESB_MAX_PAYLOAD_LENGTH, ADPCM_BLOCK_COUNT, 4);
 
 
 K_MSGQ_DEFINE(adpcm_queue, 4, ADPCM_BLOCK_COUNT, 4);
@@ -35,7 +35,7 @@ static void mic_data_handle(void *, void *, void *)
 	int err = 0;
     void *buffer;
 	uint32_t size;
-    // int ret = 0;
+	static uint8_t esb_total_size = 0;
 
     dvi_adpcm_init_state(&m_adpcm_state);
 
@@ -47,32 +47,39 @@ static void mic_data_handle(void *, void *, void *)
     while(1)
     {
         int frame_size;
-	    // uint8_t frame_buf[MAX_BLOCK_SIZE/4 + 3] = {0};
+	    char frame_buf[MAX_BLOCK_SIZE/4 + 3] = {0};
 
-		
         size = read_audio_data(&buffer, READ_TIMEOUT);
         if(size)
         {
-			if(k_mem_slab_alloc(&adpcm_slab, (void **) &block_ptr, K_MSEC(100)) == 0)
+			dvi_adpcm_encode(buffer, size, frame_buf, &frame_size,&m_adpcm_state, true);
+			// LOG_INF("ADPCM buffer got %p of %u bytes", (void *) block_ptr, frame_size);
+			// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
+
+			if(esb_total_size + frame_size  < CONFIG_ESB_MAX_PAYLOAD_LENGTH)
 			{
-			#if 0
-				/** do not compress, send pcm stream directly */
-				memcpy(block_ptr, buffer, size);
-			#else
-				dvi_adpcm_encode(buffer, size, block_ptr, &frame_size,&m_adpcm_state, true);
-				// LOG_INF("ADPCM buffer got %p of %u bytes", (void *) block_ptr, frame_size);
-				// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
+				if(0 == esb_total_size)
+				{
+					if(k_mem_slab_alloc(&adpcm_slab, (void **) &block_ptr, K_MSEC(100)) != 0)
+					{
+						LOG_ERR("Memory allocation time-out");
+						continue;
+					}
+				}
+				memcpy(block_ptr + esb_total_size, frame_buf, frame_size);
+				esb_total_size += frame_size;
+			}
+			else
+			{
+				LOG_INF("ADPCM message queue got %p of %u bytes", (void *) block_ptr, esb_total_size);
 				/** send adpcm data to esb queue, send the data pointer to another thread */
-			#endif
 				err = k_msgq_put(&adpcm_queue, &block_ptr, K_MSEC(100));
 				if (err) {
 					LOG_ERR("Message sent error: %d", err);
 				}
-			} 
-			else 
-			{
-				LOG_ERR("Memory allocation time-out");
+				esb_total_size = 0;
 			}
+			
             free_audio_memory(buffer);
         }
 
