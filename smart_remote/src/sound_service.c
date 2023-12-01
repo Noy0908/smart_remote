@@ -2,7 +2,7 @@
 #include <zephyr/audio/dmic.h>
 #include <zephyr/logging/log.h>
 #include "sound_service.h"
-// #include "drv_mic.h"
+#include "app_esb.h"
 #include "dvi_adpcm.h"
 #include "mic_work_event.h"
 
@@ -19,10 +19,10 @@ LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
  * needs to free that block.
  */
 
-K_MEM_SLAB_DEFINE(adpcm_slab, CONFIG_ESB_MAX_PAYLOAD_LENGTH, ADPCM_BLOCK_COUNT, 4);
+// K_MEM_SLAB_DEFINE(adpcm_slab, CONFIG_ESB_MAX_PAYLOAD_LENGTH, ADPCM_BLOCK_COUNT, 4);
 
 
-K_MSGQ_DEFINE(adpcm_queue, 4, ADPCM_BLOCK_COUNT, 4);
+// K_MSGQ_DEFINE(adpcm_queue, 4, ADPCM_BLOCK_COUNT, 4);
 
 
 static dvi_adpcm_state_t    m_adpcm_state;
@@ -35,6 +35,7 @@ static void mic_data_handle(void *, void *, void *)
 	int err = 0;
     void *buffer;
 	uint32_t size;
+	static char esb_buffer[CONFIG_ESB_MAX_PAYLOAD_LENGTH] = {0};
 	static uint8_t esb_total_size = 0;
 
     dvi_adpcm_init_state(&m_adpcm_state);
@@ -56,43 +57,42 @@ static void mic_data_handle(void *, void *, void *)
 			// LOG_INF("ADPCM buffer got %p of %u bytes", (void *) block_ptr, frame_size);
 			// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
 
-			// if(esb_total_size + frame_size  < CONFIG_ESB_MAX_PAYLOAD_LENGTH)
+			if(0 == esb_total_size)
 			{
-				if(0 == esb_total_size)
-				{
-					if(k_mem_slab_alloc(&adpcm_slab, (void **) &block_ptr, K_MSEC(100)) != 0)
-					{
-						LOG_ERR("Memory allocation time-out");
-						continue;
-					}
-				}
-				memcpy(((char *)block_ptr) + esb_total_size, frame_buf, frame_size);
-				esb_total_size += frame_size;
+				// if(k_mem_slab_alloc(&adpcm_slab, (void **) &block_ptr, K_MSEC(100)) != 0)
+				// {
+				// 	LOG_ERR("Memory allocation time-out");
+				// 	continue;
+				// }
+				memset(esb_buffer, 0, CONFIG_ESB_MAX_PAYLOAD_LENGTH);
+			}
+			memcpy(&esb_buffer[esb_total_size], frame_buf, frame_size);
+			esb_total_size += frame_size;
 
-				if(esb_total_size >= CONFIG_ESB_MAX_PAYLOAD_LENGTH)
-				{
-					// LOG_INF("ADPCM message queue got %p of %u bytes", (void *) block_ptr, esb_total_size);
-					/** send adpcm data to esb queue, send the data pointer to another thread */
-					err = k_msgq_put(&adpcm_queue, &block_ptr, K_MSEC(100));
-					if (err) {
-						LOG_ERR("Message sent error: %d", err);
-					}
-					esb_total_size = 0;
-				}
+			if(esb_total_size >= CONFIG_ESB_MAX_PAYLOAD_LENGTH)
+			{
+				// LOG_INF("ADPCM message queue got %p of %u bytes", (void *) block_ptr, esb_total_size);
+				/** send adpcm data to esb queue, send the data pointer to another thread */
+				// err = k_msgq_put(&adpcm_queue, &block_ptr, K_MSEC(100));
+				// if (err) {
+				// 	LOG_ERR("Message sent error: %d", err);
+				// }
+				app_esb_send(esb_buffer, CONFIG_ESB_MAX_PAYLOAD_LENGTH);
+
+				esb_total_size = 0;
 			}
 			
             free_audio_memory(buffer);
-        }
-
+		}
 		// LOG_INF("Sound service start, wait for PCM data......");
 		// k_sleep(K_MSEC(1000));
     }
 }
 
-void free_adpcm_memory(void *buffer)
-{
-	k_mem_slab_free(&adpcm_slab, buffer);
-}
+// void free_adpcm_memory(void *buffer)
+// {
+// 	k_mem_slab_free(&adpcm_slab, buffer);
+// }
 
 
 K_THREAD_DEFINE(sound_service, SOUND_STACK_SIZE,

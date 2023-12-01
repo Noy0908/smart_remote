@@ -6,6 +6,9 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(app_esb, CONFIG_ESB_BT_LOG_LEVEL);
 
+// Define a buffer of payloads (8 items by default) to store TX payloads in between timeslots
+K_MSGQ_DEFINE(m_msgq_tx_payloads, sizeof(struct esb_payload), 8, 4);
+
 static app_esb_callback_t m_callback;
 
 static app_esb_event_t 	  m_event;
@@ -16,7 +19,7 @@ static app_esb_mode_t m_mode;
 static bool m_active = false;
 static bool m_in_safe_period = false;
 
-//static int pull_packet_from_tx_msgq(void);
+static int pull_packet_from_tx_msgq(void);
 
 //static const uint8_t  dbg_pins[] = {31, 30, 29, 28, 04, 03};
 
@@ -24,10 +27,14 @@ static bool m_in_safe_period = false;
 
 static void event_handler(struct esb_evt const *event)
 {
-	//static struct esb_payload tmp_payload;
+	static struct esb_payload tmp_payload;
+
 	switch (event->evt_id) {
 		case ESB_EVENT_TX_SUCCESS:
 			LOG_DBG("TX SUCCESS EVENT");
+
+			// Remove the oldest item in the TX queue
+			k_msgq_get(&m_msgq_tx_payloads, &tmp_payload, K_NO_WAIT);
 
 			// Forward an event to the application 
 			m_event.evt_type = APP_ESB_EVT_TX_SUCCESS;
@@ -35,7 +42,7 @@ static void event_handler(struct esb_evt const *event)
 			m_callback(&m_event);
 
 			// Check if there are more messages in the queue
-			if(m_in_safe_period	){
+			if(m_in_safe_period	&& pull_packet_from_tx_msgq() == 0){
 				LOG_DBG("PCK loaded in ESB TX callback");
 			}
 			break;
@@ -46,7 +53,7 @@ static void event_handler(struct esb_evt const *event)
 			esb_flush_tx();
 
 			// Check if there are more messages in the queue
-			if(m_in_safe_period){
+			if(m_in_safe_period && pull_packet_from_tx_msgq() == 0){
 				LOG_DBG("PCK loaded in ESB fail callback");
 			}
 			break;
@@ -149,6 +156,23 @@ static int esb_initialize(app_esb_mode_t mode)
 	return 0;
 }
 
+
+static int pull_packet_from_tx_msgq(void)
+{
+	int ret;
+	static struct esb_payload tx_payload;
+	if (k_msgq_peek(&m_msgq_tx_payloads, &tx_payload) == 0) {
+		ret = esb_write_payload(&tx_payload);
+		if (ret < 0) return ret;
+		esb_start_tx();		
+
+		return 0;
+	}
+	
+	return -ENOMEM;
+}
+
+
 int app_esb_init(app_esb_mode_t mode, app_esb_callback_t callback)
 {
 	int ret;
@@ -164,19 +188,35 @@ int app_esb_init(app_esb_mode_t mode, app_esb_callback_t callback)
 	return 0;
 }
 
+extern bool get_ble_status(void);
+
 int app_esb_send(uint8_t *buf, uint32_t length)
 {
-	int ret = 0;
-	static struct esb_payload tx_payload;
-	tx_payload.pipe = 0;
-	tx_payload.noack = false;
-	memcpy(tx_payload.data, buf, length);
-	tx_payload.length = length;
-	ret = esb_write_payload(&tx_payload);
-	if (ret < 0) return ret;
-	esb_start_tx();		
-	
-	return 0;
+	if(get_ble_status() == true)
+	{
+		int ret = 0;
+		static struct esb_payload tx_payload;
+		tx_payload.pipe = 0;
+		tx_payload.noack = false;
+		memcpy(tx_payload.data, buf, length);
+		tx_payload.length = length;
+		ret = k_msgq_put(&m_msgq_tx_payloads, &tx_payload, K_NO_WAIT);
+		if (ret == 0) {
+			if (m_active && m_in_safe_period) {
+				pull_packet_from_tx_msgq();
+			}
+		}
+		else {
+			return -ENOMEM;
+		}
+
+		return 0;
+	}
+	else
+	{
+		LOG_WRN("You should connect BLE first!");
+		return -1;
+	}
 }
 
 void app_esb_safe_period_start_stop(bool started)
@@ -224,7 +264,7 @@ int app_esb_resume(void)
 		int err = esb_initialize(m_mode);
 		m_active = true;
 		m_in_safe_period = true;
-
+		pull_packet_from_tx_msgq();
 		return err;
 	}
 	else {

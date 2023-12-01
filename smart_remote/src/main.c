@@ -70,7 +70,7 @@ static bool is_bt_connected = false;
 // static uint8_t esb_tx_buf[ESB_PKT_SIZE] = {0};
 // static int tx_counter = 0;
 
-extern struct k_msgq adpcm_queue; 
+// extern struct k_msgq adpcm_queue; 
 
 /* Callback function signalling that a timeslot is started or stopped */
 void on_timeslot_start_stop(timeslot_callback_type_t type)
@@ -158,6 +158,13 @@ void on_bt_callback(app_bt_event_t *event)
 			break;
 	}
 }
+
+
+bool get_ble_status(void)
+{
+	return is_bt_connected;
+}
+
 
 
 static int leds_init(void)
@@ -295,7 +302,7 @@ int main(void)
 	LOG_INF("ESB BLE Multiprotocol Example, version is %s!\r\n",FW_VERSION);
 	LOG_INF("Main thread priority is %d!\r\n",k_thread_priority_get(k_current_get()));
 
-#if 1
+
 	err = app_bt_init(on_bt_callback);
 	if (err) {
 		LOG_ERR("app_bt init failed (err %d)", err);
@@ -309,10 +316,10 @@ int main(void)
 	}
 	
 	timeslot_init(on_timeslot_start_stop);
-#endif
-
+	
+#if 0
 	while (1) {		
-#if 1
+
 		// k_sem_take(&esb_sem, K_FOREVER);
 		if(get_timeslot_status() && is_bt_connected) 
 		{
@@ -338,8 +345,7 @@ int main(void)
 			k_sleep(K_MSEC(10));
 		}		
 		// LOG_INF("ESB BLE Multiprotocol Example is running!\r\n");
-#endif
 	}
-
+#endif
 	return 0;
 }
