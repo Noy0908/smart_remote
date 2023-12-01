@@ -56,7 +56,7 @@ static void mic_data_handle(void *, void *, void *)
 			// LOG_INF("ADPCM buffer got %p of %u bytes", (void *) block_ptr, frame_size);
 			// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
 
-			if(esb_total_size + frame_size  < CONFIG_ESB_MAX_PAYLOAD_LENGTH)
+			// if(esb_total_size + frame_size  < CONFIG_ESB_MAX_PAYLOAD_LENGTH)
 			{
 				if(0 == esb_total_size)
 				{
@@ -66,18 +66,19 @@ static void mic_data_handle(void *, void *, void *)
 						continue;
 					}
 				}
-				memcpy(block_ptr + esb_total_size, frame_buf, frame_size);
+				memcpy(((char *)block_ptr) + esb_total_size, frame_buf, frame_size);
 				esb_total_size += frame_size;
-			}
-			else
-			{
-				LOG_INF("ADPCM message queue got %p of %u bytes", (void *) block_ptr, esb_total_size);
-				/** send adpcm data to esb queue, send the data pointer to another thread */
-				err = k_msgq_put(&adpcm_queue, &block_ptr, K_MSEC(100));
-				if (err) {
-					LOG_ERR("Message sent error: %d", err);
+
+				if(esb_total_size >= CONFIG_ESB_MAX_PAYLOAD_LENGTH)
+				{
+					// LOG_INF("ADPCM message queue got %p of %u bytes", (void *) block_ptr, esb_total_size);
+					/** send adpcm data to esb queue, send the data pointer to another thread */
+					err = k_msgq_put(&adpcm_queue, &block_ptr, K_MSEC(100));
+					if (err) {
+						LOG_ERR("Message sent error: %d", err);
+					}
+					esb_total_size = 0;
 				}
-				esb_total_size = 0;
 			}
 			
             free_audio_memory(buffer);
