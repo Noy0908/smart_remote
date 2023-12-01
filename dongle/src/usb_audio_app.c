@@ -50,7 +50,7 @@ static void data_write(const struct device *dev)
 	static uint32_t timeCount = 0;
 	if(0 == (timeCount++ % 50))
 		leds_toggle();
-#if 1
+
     int ret = 0;
     void *frame_buffer = NULL;
     size_t data_out_size = 0;
@@ -63,7 +63,10 @@ static void data_write(const struct device *dev)
 		LOG_ERR("Failed to allocate data buffer");
 		return;
 	}
-	// LOG_INF("netbuf_size = %d\t", buf_out->size);
+
+	if(buf_out->size != 64)
+		LOG_INF("netbuf_size = %d\t", buf_out->size);
+
     if(k_msgq_get(&esb_queue, &frame_buffer, K_NO_WAIT) != 0)
     {
         // LOG_WRN("USB audio TX underrun");
@@ -71,14 +74,17 @@ static void data_write(const struct device *dev)
 		return;
     }
     
-    /** USB audio driver handle the pcm stream*/
+   
     // LOG_HEXDUMP_INF(frame_buffer, 8, "Receive audio queue");
 	mono_to_stereo((int16_t*) frame_buffer, MAX_BLOCK_SIZE/2, (int16_t*)buf_out->data);
     
 	data_out_size =  buf_out->size;
-     //free the memory slab
+     /** free the memory slab */
     free_esb_slab_memory(frame_buffer);	
 
+	
+#if 1
+	 /** USB audio driver handle the pcm stream*/
 	if (data_out_size == usb_audio_get_in_frame_size(dev)) 
     {
 		ret = usb_audio_send(dev, buf_out, data_out_size);
@@ -95,6 +101,8 @@ static void data_write(const struct device *dev)
     {
 		LOG_WRN("Wrong size write: %d", data_out_size);
 	}
+#else
+	// net_buf_unref(buf_out);
 #endif
 }
 
@@ -176,10 +184,10 @@ static void esb_audio_data_handle(void *, void *, void *)
 		k_msgq_get(&esb_queue, &frame_buffer, K_FOREVER);
 		LOG_INF("received ADPCM decompress stream");
 		mono_to_stereo((int16_t*) frame_buffer, MAX_BLOCK_SIZE/2, (int16_t*)buf_out);	
-		if(0 == soc_flash_write(TEST_PARTITION_OFFSET + total_size, buf_out, MAX_BLOCK_SIZE*2))
-		{
-			total_size += MAX_BLOCK_SIZE*2;
-		}
+		// if(0 == soc_flash_write(TEST_PARTITION_OFFSET + total_size, buf_out, MAX_BLOCK_SIZE*2))
+		// {
+		// 	total_size += MAX_BLOCK_SIZE*2;
+		// }
 
         //free the memory slab
 		free_esb_slab_memory(frame_buffer);	

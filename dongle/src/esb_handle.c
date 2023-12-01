@@ -100,7 +100,7 @@ void esb_buffer_handle(void)
 {
     int err = 0;
     int frame_size = 0;
-	uint8_t adpcm_index = 0;
+	static uint8_t adpcm_index = 0;
     struct esb_payload rx_payload;
 
     if (esb_read_rx_payload(&rx_payload) == 0) 
@@ -110,13 +110,15 @@ void esb_buffer_handle(void)
         //     rx_payload.length, rx_payload.data[0],
         //     rx_payload.data[1], rx_payload.data[2],
         //     rx_payload.data[3] );
-
+	#if 1
+		adpcm_index = 0;
+		
 		while(adpcm_index + ADPCM_BLOCK_SIZE <= rx_payload.length)
 		{
 			if(k_mem_slab_alloc(&esb_slab, (void **) &block_ptr, K_NO_WAIT) == 0)
 			{
 				dvi_adpcm_decode(&(rx_payload.data[adpcm_index]), ADPCM_BLOCK_SIZE, block_ptr, &frame_size, &m_adpcm_state);
-				LOG_INF("adpcm_index=%d, ADPCMdecompress %u bytes", adpcm_index, frame_size);
+				// LOG_INF("adpcm_index=%d, ADPCMdecompress %u bytes", adpcm_index, frame_size);
 				// LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
 
 				/** send the PCM data to USB audio driver*/
@@ -126,12 +128,32 @@ void esb_buffer_handle(void)
 				}
 
 				adpcm_index += ADPCM_BLOCK_SIZE;
+
+				// k_mem_slab_free(&esb_slab, block_ptr);
 			}
 			else 
 			{
 				LOG_ERR("Memory allocation for ESB receive time-out");
 			}	
 		}
+	#else
+		if(k_mem_slab_alloc(&esb_slab, (void **) &block_ptr, K_NO_WAIT) == 0)
+		{
+			dvi_adpcm_decode(rx_payload.data, ADPCM_BLOCK_SIZE, block_ptr, &frame_size, &m_adpcm_state);
+			// LOG_INF("adpcm_index=%d, ADPCMdecompress %u bytes", adpcm_index, frame_size);
+			// LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
+
+			/** send the PCM data to USB audio driver*/
+			err = k_msgq_put(&esb_queue, &block_ptr, K_NO_WAIT);
+			if (err) {
+				LOG_ERR("Message sent error: %d", err);
+			}
+		}
+		else 
+		{
+			LOG_ERR("Memory allocation for ESB receive time-out");
+		}	
+	#endif
     } 
     else 
     {
