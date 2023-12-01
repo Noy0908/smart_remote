@@ -13,7 +13,7 @@
 
 
 
-// void usb_audio_init(void);
+void usb_audio_init(void);
 
 
 #endif

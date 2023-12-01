@@ -16,7 +16,7 @@
 #include <zephyr/types.h>
 #include "esb_handle.h"
 #include "dvi_adpcm.h"
-
+#include "usb_audio_app.h"
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/usb/class/usb_audio.h>
 
@@ -135,6 +135,8 @@ int main(void)
 	}
 
 	dvi_adpcm_init_state(&m_adpcm_state);
+
+	usb_audio_init();
 
 	err = esb_initialize();
 	if (err) {
