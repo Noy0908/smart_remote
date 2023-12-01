@@ -80,7 +80,7 @@ int leds_toggle(void)
 }
 
 
-extern struct k_sem esb_sem;
+
 
 
 int clocks_start(void)
@@ -117,6 +117,7 @@ int clocks_start(void)
 }
 
 
+// extern struct k_sem esb_sem;
 
 int main(void)
 {
@@ -136,7 +137,7 @@ int main(void)
 
 	dvi_adpcm_init_state(&m_adpcm_state);
 
-	usb_audio_init();
+	// usb_audio_init();
 
 	err = esb_initialize();
 	if (err) {
@@ -160,11 +161,12 @@ int main(void)
 		return err;
 	}
 
-	while(1)
-	{
-		k_sem_take(&esb_sem, K_FOREVER);
-		esb_buffer_handle();
-	}
+	// while(1)
+	// {
+	// 	k_sem_take(&esb_sem, K_FOREVER);
+	// 	esb_buffer_handle();
+	// }
+
 	/* return to idle thread */
 	return 0;
 }

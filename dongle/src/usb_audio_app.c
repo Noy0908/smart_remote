@@ -9,8 +9,8 @@
 LOG_MODULE_DECLARE(smart_dongle, CONFIG_ESB_PRX_APP_LOG_LEVEL);
 
 
-// #define USB_AUDIO_STACK_SIZE        2048
-// #define USB_AUDIO_PRIORITY          3
+#define USB_AUDIO_STACK_SIZE        2048
+#define USB_AUDIO_PRIORITY          3
 
 
 
@@ -21,8 +21,12 @@ static const struct device *const mic_dev = DEVICE_DT_GET_ONE(usb_audio_mic);
 
 extern struct k_msgq esb_queue;
 
+extern struct k_sem esb_sem;
+
 
 extern int leds_toggle(void);
+
+
 
 
 /*
@@ -71,9 +75,9 @@ static void data_write(const struct device *dev)
    
     // LOG_HEXDUMP_INF(frame_buffer, 8, "Receive audio queue");
 	mono_to_stereo((int16_t*) frame_buffer, MAX_BLOCK_SIZE/2, (int16_t*)buf_out->data);
-    
+	// memcpy(buf_out->data, frame_buffer, buf_out->size);
 	data_out_size =  buf_out->size;
-     /** free the memory slab */
+    /** free the memory slab */
     free_esb_slab_memory(frame_buffer);	
 
 	 /** USB audio driver handle the pcm stream*/
@@ -163,60 +167,18 @@ static void esb_audio_data_handle(void *, void *, void *)
 	LOG_INF("USB enabled");
 	LOG_INF("mic_frame_size = %d\t ", usb_audio_get_in_frame_size(mic_dev));
 
-#if 0
     while(1)
     {
-        int ret = 0;
-		void *frame_buffer = NULL;
-		size_t data_out_size = 0;
-		
-		struct net_buf *buf_out;
-
-		if(k_msgq_get(&esb_queue, &frame_buffer, K_MSEC(20)) != 0)
-		{
-			continue;
-		}
-
-		buf_out = net_buf_alloc(&pool_out, K_MSEC(20));
-		if (!buf_out) 
-		{
-			LOG_ERR("Failed to allocate data buffer");
-			continue;
-		}
-
-		// LOG_HEXDUMP_INF(frame_buffer, 8, "Receive audio queue");
-		mono_to_stereo((int16_t*) frame_buffer, MAX_BLOCK_SIZE/2, (int16_t*)buf_out->data);
-		data_out_size =  buf_out->size;
-		/** free the memory slab */
-		free_esb_slab_memory(frame_buffer);	
-
-		/** USB audio driver handle the pcm stream*/
-		if (data_out_size == usb_audio_get_in_frame_size(mic_dev)) 
-		{
-			ret = usb_audio_send(mic_dev, buf_out, data_out_size);
-			if (ret) {
-				LOG_WRN("USB TX failed, ret: %d", ret);
-				net_buf_unref(buf_out);
-			}
-			// else
-			// {	
-			// 	LOG_INF("usb audio send %d bytes succeed!\t", data_out_size);
-			// }
-		} 
-		else 
-		{
-			LOG_WRN("Wrong size write: %d", data_out_size);
-		}
+        k_sem_take(&esb_sem, K_FOREVER);
+		esb_buffer_handle();
     }
-#endif
+
 }
 
 
-
-
-// K_THREAD_DEFINE(esb_audio_service, USB_AUDIO_STACK_SIZE,
-//                 esb_audio_data_handle, NULL, NULL, NULL,
-//                 K_PRIO_PREEMPT(USB_AUDIO_PRIORITY), 0, 0);
+K_THREAD_DEFINE(esb_audio_service, USB_AUDIO_STACK_SIZE,
+                esb_audio_data_handle, NULL, NULL, NULL,
+                K_PRIO_PREEMPT(USB_AUDIO_PRIORITY), 0, 0);
 
 
 

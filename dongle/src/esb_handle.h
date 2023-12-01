@@ -16,8 +16,8 @@
 
 #define ADPCM_BLOCK_SIZE			(MAX_BLOCK_SIZE/4 + 3)
 
-#define ESB_BLOCK_SIZE              MAX_BLOCK_SIZE
-#define ESB_BLOCK_COUNT             500
+#define ESB_BLOCK_SIZE              (MAX_BLOCK_SIZE)
+#define ESB_BLOCK_COUNT             600
 
 
 int esb_initialize(void);

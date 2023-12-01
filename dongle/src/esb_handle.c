@@ -97,6 +97,15 @@ int esb_initialize(void)
 }
 
 
+static void mono_to_stereo(int16_t* src_audio, int frames, int16_t* dst_audio) 
+{
+    for (int i = 0; i < frames; i++) 
+    {
+        dst_audio[2 * i] = src_audio[i];
+        dst_audio[2 * i + 1] = src_audio[i];
+    }
+}
+
 
 void esb_buffer_handle(void)
 {
@@ -120,7 +129,32 @@ void esb_buffer_handle(void)
 				dvi_adpcm_decode(&(rx_payload.data[adpcm_index]), ADPCM_BLOCK_SIZE, block_ptr, &frame_size, &m_adpcm_state);
 				// LOG_INF("adpcm_index=%d, ADPCMdecompress %u bytes", adpcm_index, frame_size);
 				// LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
+    
+				/** send the PCM data to USB audio driver*/
+				err = k_msgq_put(&esb_queue, &block_ptr, K_NO_WAIT);
+				if (err) {
+					LOG_ERR("Message sent error: %d", err);
+				}
 
+				adpcm_index += ADPCM_BLOCK_SIZE;
+			}
+			else 
+			{
+				LOG_ERR("Memory allocation for ESB receive time-out");
+			}	
+		}
+	#else
+		while(adpcm_index + ADPCM_BLOCK_SIZE <= rx_payload.length)
+		{
+			if(k_mem_slab_alloc(&esb_slab, (void **) &block_ptr, K_MSEC(20)) == 0)
+			{
+				char pcm_buffer[MAX_BLOCK_SIZE] = {0};
+
+				dvi_adpcm_decode(&(rx_payload.data[adpcm_index]), ADPCM_BLOCK_SIZE, pcm_buffer, &frame_size, &m_adpcm_state);
+				// LOG_INF("adpcm_index=%d, ADPCMdecompress %u bytes", adpcm_index, frame_size);
+				// LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
+				mono_to_stereo((int16_t*) pcm_buffer, MAX_BLOCK_SIZE/2, (int16_t*)block_ptr);
+    
 				/** send the PCM data to USB audio driver*/
 				err = k_msgq_put(&esb_queue, &block_ptr, K_NO_WAIT);
 				if (err) {
@@ -136,23 +170,6 @@ void esb_buffer_handle(void)
 				LOG_ERR("Memory allocation for ESB receive time-out");
 			}	
 		}
-	#else
-		if(k_mem_slab_alloc(&esb_slab, (void **) &block_ptr, K_NO_WAIT) == 0)
-		{
-			dvi_adpcm_decode(rx_payload.data, ADPCM_BLOCK_SIZE, block_ptr, &frame_size, &m_adpcm_state);
-			// LOG_INF("adpcm_index=%d, ADPCMdecompress %u bytes", adpcm_index, frame_size);
-			// LOG_HEXDUMP_INF(block_ptr, 8, "ADPCM decompress");
-
-			/** send the PCM data to USB audio driver*/
-			err = k_msgq_put(&esb_queue, &block_ptr, K_NO_WAIT);
-			if (err) {
-				LOG_ERR("Message sent error: %d", err);
-			}
-		}
-		else 
-		{
-			LOG_ERR("Memory allocation for ESB receive time-out");
-		}	
 	#endif
     } 
     else 
