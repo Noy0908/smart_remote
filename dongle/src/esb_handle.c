@@ -17,6 +17,8 @@ K_MEM_SLAB_DEFINE(esb_slab, ESB_BLOCK_SIZE, ESB_BLOCK_COUNT, 4);
 
 K_MSGQ_DEFINE(esb_queue, 4, ESB_BLOCK_COUNT, 4);
 
+K_SEM_DEFINE(esb_sem, 0, 1);
+
 /** this pointer variable used for transport the message queue to USB audio thread.*/
 void *block_ptr = NULL;
 
@@ -33,9 +35,9 @@ static void event_handler(struct esb_evt const *event)
 		LOG_DBG("TX FAILED EVENT");
 		break;
 	case ESB_EVENT_RX_RECEIVED:
-        esb_buffer_handle();
+        // esb_buffer_handle();
 		/* notify thread that data is available */
-    	// k_sem_give(&esb_sem);
+    	k_sem_give(&esb_sem);
 
 		// if (esb_read_rx_payload(&rx_payload) == 0) {
 		// 	LOG_INF("Packet received, len %d : "
@@ -112,10 +114,10 @@ void esb_buffer_handle(void)
         //     rx_payload.data[3] );
 	#if 1
 		adpcm_index = 0;
-		
+
 		while(adpcm_index + ADPCM_BLOCK_SIZE <= rx_payload.length)
 		{
-			if(k_mem_slab_alloc(&esb_slab, (void **) &block_ptr, K_NO_WAIT) == 0)
+			if(k_mem_slab_alloc(&esb_slab, (void **) &block_ptr, K_MSEC(100)) == 0)
 			{
 				dvi_adpcm_decode(&(rx_payload.data[adpcm_index]), ADPCM_BLOCK_SIZE, block_ptr, &frame_size, &m_adpcm_state);
 				// LOG_INF("adpcm_index=%d, ADPCMdecompress %u bytes", adpcm_index, frame_size);

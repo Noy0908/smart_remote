@@ -80,7 +80,7 @@ int leds_toggle(void)
 }
 
 
-// extern struct k_sem esb_sem;
+extern struct k_sem esb_sem;
 
 
 int clocks_start(void)
@@ -158,6 +158,11 @@ int main(void)
 		return err;
 	}
 
+	while(1)
+	{
+		k_sem_take(&esb_sem, K_FOREVER);
+		esb_buffer_handle();
+	}
 	/* return to idle thread */
 	return 0;
 }
