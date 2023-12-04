@@ -16,28 +16,27 @@ static app_esb_mode_t m_mode;
 static bool m_active = false;
 static bool m_in_safe_period = false;
 
-//static int pull_packet_from_tx_msgq(void);
-
-//static const uint8_t  dbg_pins[] = {31, 30, 29, 28, 04, 03};
-
-//static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
+K_MSGQ_DEFINE(m_msgq_tx_payloads, sizeof(struct esb_payload), 20, 4);
 
 static void event_handler(struct esb_evt const *event)
 {
-	//static struct esb_payload tmp_payload;
+	// static struct esb_payload tmp_payload;
 	switch (event->evt_id) {
 		case ESB_EVENT_TX_SUCCESS:
 			LOG_DBG("TX SUCCESS EVENT");
 
+			// Remove the oldest item in the TX queue
+			// k_msgq_get(&m_msgq_tx_payloads, &tmp_payload, K_NO_WAIT);
+
 			// Forward an event to the application 
-			m_event.evt_type = APP_ESB_EVT_TX_SUCCESS;
-			m_event.data_length = 0;
-			m_callback(&m_event);
+			// m_event.evt_type = APP_ESB_EVT_TX_SUCCESS;
+			// m_event.data_length = 0;
+			// m_callback(&m_event);
 
 			// Check if there are more messages in the queue
-			if(m_in_safe_period	){
-				LOG_DBG("PCK loaded in ESB TX callback");
-			}
+			// if(m_in_safe_period && pull_packet_from_tx_msgq() == 0){
+			// 	LOG_DBG("PCK loaded in ESB TX callback");
+			// }
 			break;
 
 		case ESB_EVENT_TX_FAILED:
@@ -46,9 +45,9 @@ static void event_handler(struct esb_evt const *event)
 			esb_flush_tx();
 
 			// Check if there are more messages in the queue
-			if(m_in_safe_period){
-				LOG_DBG("PCK loaded in ESB fail callback");
-			}
+			// if(m_in_safe_period && pull_packet_from_tx_msgq() == 0){
+			// 	LOG_DBG("PCK loaded in ESB fail callback");
+			// }
 			break;
 
 		case ESB_EVENT_RX_RECEIVED:
@@ -164,7 +163,41 @@ int app_esb_init(app_esb_mode_t mode, app_esb_callback_t callback)
 	return 0;
 }
 
-int app_esb_send(uint8_t *buf, uint32_t length)
+// int app_esb_send(uint8_t *buf, uint32_t length)
+// {
+// 	int ret = 0;
+// 	static struct esb_payload tx_payload;
+// 	tx_payload.pipe = 0;
+// 	tx_payload.noack = false;
+// 	memcpy(tx_payload.data, buf, length);
+// 	tx_payload.length = length;
+// 	ret = esb_write_payload(&tx_payload);
+// 	if (ret < 0) return ret;
+// 	esb_start_tx();		
+	
+// 	return 0;
+// }
+
+int pull_packet_from_tx_msgq(void)
+{
+	int ret;
+	static struct esb_payload tx_payload;
+	// if (k_msgq_peek(&m_msgq_tx_payloads, &tx_payload) == 0) 
+	if (0 == k_msgq_get(&m_msgq_tx_payloads, &tx_payload, K_NO_WAIT))
+	{
+		ret = esb_write_payload(&tx_payload);
+		if (ret < 0) return ret;
+		esb_start_tx();		
+
+		return 0;
+	}
+	
+	return -ENOMEM;
+}
+
+
+
+int esb_package_enqueue(uint8_t *buf, uint32_t length)
 {
 	int ret = 0;
 	static struct esb_payload tx_payload;
@@ -172,12 +205,18 @@ int app_esb_send(uint8_t *buf, uint32_t length)
 	tx_payload.noack = false;
 	memcpy(tx_payload.data, buf, length);
 	tx_payload.length = length;
-	ret = esb_write_payload(&tx_payload);
-	if (ret < 0) return ret;
-	esb_start_tx();		
-	
+	ret = k_msgq_put(&m_msgq_tx_payloads, &tx_payload, K_NO_WAIT);
+	// if (ret == 0) {
+	// 	if (m_active && m_in_safe_period) {
+	// 		pull_packet_from_tx_msgq();
+	// 	}
+	// }
+	if (ret) {
+		return -ENOMEM;
+	}
 	return 0;
 }
+
 
 void app_esb_safe_period_start_stop(bool started)
 {

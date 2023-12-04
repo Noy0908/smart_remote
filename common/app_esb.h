@@ -25,4 +25,8 @@ int app_esb_resume(void);
 
 void app_esb_safe_period_start_stop(bool started);
 
+int esb_package_enqueue(uint8_t *buf, uint32_t length);
+
+int pull_packet_from_tx_msgq(void);
+
 #endif

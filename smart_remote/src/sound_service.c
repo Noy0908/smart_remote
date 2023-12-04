@@ -2,7 +2,7 @@
 #include <zephyr/audio/dmic.h>
 #include <zephyr/logging/log.h>
 #include "sound_service.h"
-// #include "drv_mic.h"
+#include "app_esb.h"
 #include "dvi_adpcm.h"
 #include "mic_work_event.h"
 
@@ -14,27 +14,18 @@ LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
 /* Milliseconds to wait for a block to be read. */
 #define READ_TIMEOUT            1000
 
-/* Driver will allocate blocks from this slab to save adpcm data into them.
- * Application, after getting a given block then push it to the esb send message queue,
- * needs to free that block.
- */
-
-K_MEM_SLAB_DEFINE(adpcm_slab, CONFIG_ESB_MAX_PAYLOAD_LENGTH, ADPCM_BLOCK_COUNT, 4);
-
-
-K_MSGQ_DEFINE(adpcm_queue, 4, ADPCM_BLOCK_COUNT, 4);
-
 
 static dvi_adpcm_state_t    m_adpcm_state;
 
 /** this pointer variable used for transport the message queue to ESB thread.*/
-void *block_ptr = NULL;
+// void *block_ptr = NULL;
 
 static void mic_data_handle(void *, void *, void *)
 {
 	int err = 0;
     void *buffer;
 	uint32_t size;
+	static uint8_t esb_tx_buf[CONFIG_ESB_MAX_PAYLOAD_LENGTH] = {0};
 	static uint8_t esb_total_size = 0;
 
     dvi_adpcm_init_state(&m_adpcm_state);
@@ -53,32 +44,15 @@ static void mic_data_handle(void *, void *, void *)
         if(size)
         {
 			dvi_adpcm_encode(buffer, size, frame_buf, &frame_size,&m_adpcm_state, true);
-			// LOG_INF("ADPCM buffer got %p of %u bytes", (void *) block_ptr, frame_size);
-			// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
 
-			// if(esb_total_size + frame_size  < CONFIG_ESB_MAX_PAYLOAD_LENGTH)
+			memcpy(&(esb_tx_buf[esb_total_size]), frame_buf, frame_size);
+			esb_total_size += frame_size;
+
+			if(esb_total_size >= CONFIG_ESB_MAX_PAYLOAD_LENGTH)
 			{
-				if(0 == esb_total_size)
-				{
-					if(k_mem_slab_alloc(&adpcm_slab, (void **) &block_ptr, K_MSEC(100)) != 0)
-					{
-						LOG_ERR("Memory allocation time-out");
-						continue;
-					}
-				}
-				memcpy(((char *)block_ptr) + esb_total_size, frame_buf, frame_size);
-				esb_total_size += frame_size;
-
-				if(esb_total_size >= CONFIG_ESB_MAX_PAYLOAD_LENGTH)
-				{
-					// LOG_INF("ADPCM message queue got %p of %u bytes", (void *) block_ptr, esb_total_size);
-					/** send adpcm data to esb queue, send the data pointer to another thread */
-					err = k_msgq_put(&adpcm_queue, &block_ptr, K_MSEC(100));
-					if (err) {
-						LOG_ERR("Message sent error: %d", err);
-					}
-					esb_total_size = 0;
-				}
+				esb_package_enqueue(esb_tx_buf, CONFIG_ESB_MAX_PAYLOAD_LENGTH);
+				memset(esb_tx_buf, 0, CONFIG_ESB_MAX_PAYLOAD_LENGTH);
+				esb_total_size = 0;
 			}
 			
             free_audio_memory(buffer);
@@ -89,10 +63,6 @@ static void mic_data_handle(void *, void *, void *)
     }
 }
 
-void free_adpcm_memory(void *buffer)
-{
-	k_mem_slab_free(&adpcm_slab, buffer);
-}
 
 
 K_THREAD_DEFINE(sound_service, SOUND_STACK_SIZE,
