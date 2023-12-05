@@ -22,7 +22,6 @@ static dvi_adpcm_state_t    m_adpcm_state;
 
 static void mic_data_handle(void *, void *, void *)
 {
-	int err = 0;
     void *buffer;
 	uint32_t size;
 	static uint8_t esb_tx_buf[CONFIG_ESB_MAX_PAYLOAD_LENGTH] = {0};

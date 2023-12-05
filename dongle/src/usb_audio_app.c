@@ -146,7 +146,7 @@ void usb_audio_init(void)
 static void esb_audio_data_handle(void *, void *, void *)
 {
 	int ret;
-	static uint32_t total_size = 0;
+	// static uint32_t total_size = 0;
 
 	// soc_flash_init();
 

@@ -553,7 +553,7 @@ static void hid_init(void)
 	__ASSERT(err == 0, "HIDS initialization failed\n");
 }
 
-
+#if 0
 static void mouse_movement_send(int16_t x_delta, int16_t y_delta)
 {
 	for (size_t i = 0; i < CONFIG_BT_HIDS_MAX_CLIENT_COUNT; i++) {
@@ -599,7 +599,7 @@ static void mouse_movement_send(int16_t x_delta, int16_t y_delta)
 		}
 	}
 }
-
+#endif
 
 static void hid_handler(struct k_work *work)
 {
