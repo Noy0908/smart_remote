@@ -15,7 +15,7 @@ typedef void (*app_esb_callback_t)(app_esb_event_t *event);
 
 typedef enum {APP_ESB_MODE_PTX, APP_ESB_MODE_PRX} app_esb_mode_t;
 
-int app_esb_init(app_esb_mode_t mode, app_esb_callback_t callback);
+int app_esb_init(app_esb_mode_t mode);
 
 int app_esb_send(uint8_t *buf, uint32_t length);
 

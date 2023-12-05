@@ -54,11 +54,6 @@ static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET_OR(SW0_NODE, gpios,{0
 static struct gpio_callback button_cb_data;
 
 
-// static const uint8_t  dbg_pins[] = {31, 30, 29, 28, 04, 03};
-
-// static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
-// static const struct device *button_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
-
 static const struct gpio_dt_spec leds[] = {
 	// GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios),
 	GPIO_DT_SPEC_GET(DT_ALIAS(led1), gpios),
@@ -67,55 +62,8 @@ static const struct gpio_dt_spec leds[] = {
 
 static bool is_bt_connected = false;
 
-// static uint8_t esb_tx_buf[ESB_PKT_SIZE] = {0};
-// static int tx_counter = 0;
-
 extern struct k_msgq m_msgq_tx_payloads; 
 
-/* Callback function signalling that a timeslot is started or stopped */
-void on_timeslot_start_stop(timeslot_callback_type_t type)
-{
-
-	switch (type) {
-		case APP_TS_STARTED:
-		// 	dk_set_led_off(TIMESLOT_LED);
-			app_esb_resume();
-
-			// if(is_bt_connected) //just for test
-			// {
-			// 	/* notify thread that data is available */
-    		// 	// k_sem_give(&esb_sem);
-			// 	// k_work_submit(&hids_work);
-			// }
-
-			break;
-		case APP_TS_STOPPED:
-			// dk_set_led_on(TIMESLOT_LED);
-			app_esb_suspend();
-			break;
-	}
-}
-
-void on_esb_callback(app_esb_event_t *event)
-{
-	switch(event->evt_type) {
-		case APP_ESB_EVT_TX_SUCCESS:
-
-		// gpio_pin_set(dbg_port, dbg_pins[3], 1);
-			// LOG_INF("ESB TX success");
-		// gpio_pin_set(dbg_port, dbg_pins[3], 0);
-			break;
-		case APP_ESB_EVT_TX_FAIL:
-			LOG_INF("ESB TX failed");
-			break;
-		case APP_ESB_EVT_RX:
-			LOG_INF("ESB RX: 0x%.2x-0x%.2x-0x%.2x-0x%.2x", event->buf[0], event->buf[1], event->buf[2], event->buf[3]);
-			break;
-		default:
-			LOG_ERR("Unknown APP ESB event!");
-			break;
-	}
-}
 
 
 void on_bt_callback(app_bt_event_t *event)
@@ -229,6 +177,8 @@ static int buttons_init( void )
 	return 0;
 }
 
+
+// extern struct k_mutex esb_mutex;
 int main(void)
 {
 	int err;
@@ -261,19 +211,18 @@ int main(void)
 		return err;
 	}
 
-	err = app_esb_init(APP_ESB_MODE_PTX, on_esb_callback);
+	err = app_esb_init(APP_ESB_MODE_PTX);
 	if (err) {
 		LOG_ERR("app_esb init failed (err %d)", err);
 		return err;
 	}
 	
-	timeslot_init(on_timeslot_start_stop);
+	timeslot_init();
 
-
+#if 0
 	while (1) {		
-#if 1
-		// if(get_timeslot_status() && is_bt_connected)
-		if(get_timeslot_status()) 
+	
+		// if(is_bt_connected)
 		{
 			struct esb_payload tx_payload;
 			if (0 == k_msgq_get(&m_msgq_tx_payloads, &tx_payload, K_MSEC(10)))
@@ -281,11 +230,16 @@ int main(void)
 			{
 				// LOG_INF("ADPCM message queue %p ", (void *) frame_buffer);
 				// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
-				int err = esb_write_payload(&tx_payload);
-				if (err < 0) {
-					LOG_INF("ESB TX upload failed (err %i)", err);
+				if (k_mutex_lock(&esb_mutex, K_FOREVER) == 0) 
+				{
+					int err = esb_write_payload(&tx_payload);
+					if (err < 0) {
+						LOG_INF("ESB TX upload failed (err %i)", err);
+					}
+					esb_start_tx();	
+
+					k_mutex_unlock(&esb_mutex);
 				}
-				esb_start_tx();	
 			}
 			// else 
 			// {
@@ -293,13 +247,9 @@ int main(void)
 			// 	k_sleep(K_MSEC(1));
 			// }
 		}
-		else
-		{
+	
 			k_sleep(K_MSEC(10));
-		}		
-		// LOG_INF("ESB BLE Multiprotocol Example is running!\r\n");
-#endif
 	}
-
+#endif
 	return 0;
 }

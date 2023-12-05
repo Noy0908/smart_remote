@@ -6,59 +6,49 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(app_esb, CONFIG_ESB_BT_LOG_LEVEL);
 
-static app_esb_callback_t m_callback;
-
-static app_esb_event_t 	  m_event;
-
-static struct esb_payload rx_payload;
+// static struct esb_payload rx_payload;
 
 static app_esb_mode_t m_mode;
 static bool m_active = false;
 static bool m_in_safe_period = false;
 
-K_MSGQ_DEFINE(m_msgq_tx_payloads, sizeof(struct esb_payload), 20, 4);
+K_MSGQ_DEFINE(m_msgq_tx_payloads, sizeof(struct esb_payload), 30, 4);
 
 static void event_handler(struct esb_evt const *event)
 {
-	// static struct esb_payload tmp_payload;
+	static struct esb_payload tmp_payload;
 	switch (event->evt_id) {
 		case ESB_EVENT_TX_SUCCESS:
-			LOG_DBG("TX SUCCESS EVENT");
-
+			LOG_INF("TX SUCCESS EVENT");
 			// Remove the oldest item in the TX queue
-			// k_msgq_get(&m_msgq_tx_payloads, &tmp_payload, K_NO_WAIT);
-
-			// Forward an event to the application 
-			// m_event.evt_type = APP_ESB_EVT_TX_SUCCESS;
-			// m_event.data_length = 0;
-			// m_callback(&m_event);
+			k_msgq_get(&m_msgq_tx_payloads, &tmp_payload, K_NO_WAIT);
 
 			// Check if there are more messages in the queue
-			// if(m_in_safe_period && pull_packet_from_tx_msgq() == 0){
-			// 	LOG_DBG("PCK loaded in ESB TX callback");
-			// }
+			if(m_in_safe_period && pull_packet_from_tx_msgq() == 0){
+				LOG_DBG("PCK loaded in ESB TX callback");
+			}
 			break;
 
 		case ESB_EVENT_TX_FAILED:
-			LOG_DBG("TX FAILED EVENT");
+			LOG_WRN("TX FAILED EVENT");
 			
 			esb_flush_tx();
 
 			// Check if there are more messages in the queue
-			// if(m_in_safe_period && pull_packet_from_tx_msgq() == 0){
-			// 	LOG_DBG("PCK loaded in ESB fail callback");
-			// }
+			if(m_in_safe_period && pull_packet_from_tx_msgq() == 0){
+				LOG_DBG("PCK loaded in ESB fail callback");
+			}
 			break;
 
 		case ESB_EVENT_RX_RECEIVED:
-			while (esb_read_rx_payload(&rx_payload) == 0) {
-				LOG_DBG("Packet received, len %d : ", rx_payload.length);
+			// while (esb_read_rx_payload(&rx_payload) == 0) {
+			// 	LOG_DBG("Packet received, len %d : ", rx_payload.length);
 
-				m_event.evt_type = APP_ESB_EVT_RX;
-				m_event.buf = rx_payload.data;
-				m_event.data_length = rx_payload.length;
-				m_callback(&m_event);
-			}
+			// 	m_event.evt_type = APP_ESB_EVT_RX;
+			// 	m_event.buf = rx_payload.data;
+			// 	m_event.data_length = rx_payload.length;
+			// 	m_callback(&m_event);
+			// }
 			break;
 	}
 }
@@ -148,11 +138,10 @@ static int esb_initialize(app_esb_mode_t mode)
 	return 0;
 }
 
-int app_esb_init(app_esb_mode_t mode, app_esb_callback_t callback)
+int app_esb_init(app_esb_mode_t mode)
 {
 	int ret;
 
-	m_callback = callback;
 	m_mode = mode;
 	
 	ret = clocks_start();
@@ -163,30 +152,20 @@ int app_esb_init(app_esb_mode_t mode, app_esb_callback_t callback)
 	return 0;
 }
 
-// int app_esb_send(uint8_t *buf, uint32_t length)
-// {
-// 	int ret = 0;
-// 	static struct esb_payload tx_payload;
-// 	tx_payload.pipe = 0;
-// 	tx_payload.noack = false;
-// 	memcpy(tx_payload.data, buf, length);
-// 	tx_payload.length = length;
-// 	ret = esb_write_payload(&tx_payload);
-// 	if (ret < 0) return ret;
-// 	esb_start_tx();		
-	
-// 	return 0;
-// }
 
 int pull_packet_from_tx_msgq(void)
 {
 	int ret;
 	static struct esb_payload tx_payload;
-	// if (k_msgq_peek(&m_msgq_tx_payloads, &tx_payload) == 0) 
-	if (0 == k_msgq_get(&m_msgq_tx_payloads, &tx_payload, K_NO_WAIT))
+	if (k_msgq_peek(&m_msgq_tx_payloads, &tx_payload) == 0) 
+	// if(0 == k_msgq_get(&m_msgq_tx_payloads, &tx_payload, K_NO_WAIT))
 	{
 		ret = esb_write_payload(&tx_payload);
-		if (ret < 0) return ret;
+		if (ret < 0) 
+		{
+			LOG_INF("ESB TX upload failed (err %i)", ret);		
+			return ret;
+		}
 		esb_start_tx();		
 
 		return 0;
@@ -205,13 +184,14 @@ int esb_package_enqueue(uint8_t *buf, uint32_t length)
 	tx_payload.noack = false;
 	memcpy(tx_payload.data, buf, length);
 	tx_payload.length = length;
-	ret = k_msgq_put(&m_msgq_tx_payloads, &tx_payload, K_NO_WAIT);
-	// if (ret == 0) {
-	// 	if (m_active && m_in_safe_period) {
-	// 		pull_packet_from_tx_msgq();
-	// 	}
-	// }
-	if (ret) {
+	ret = k_msgq_put(&m_msgq_tx_payloads, &tx_payload, K_MSEC(2));
+	if (ret == 0) {
+		if (m_active && m_in_safe_period) {
+			pull_packet_from_tx_msgq();
+		}
+	}
+	else {
+		LOG_INF("Audio message queue is full");
 		return -ENOMEM;
 	}
 	return 0;

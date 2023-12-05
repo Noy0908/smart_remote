@@ -3,18 +3,18 @@
 #include <zephyr/irq.h>
 #include <zephyr/sys/ring_buffer.h>
 #include <hal/nrf_timer.h>
-
 #include <mpsl_timeslot.h>
 #include <mpsl.h>
-
 #include <zephyr/logging/log.h>
+#include "app_esb.h"
 
 LOG_MODULE_REGISTER(timeslot, LOG_LEVEL_INF);
 
 #define TIMESLOT_REQUEST_TIMEOUT_US  1000000
 #define TIMESLOT_LENGTH_US           10000//10000
-#define TIMESLOT_EXT_MARGIN_MARGIN	 1000//1000
-#define TIMESLOT_REQ_EARLIEST_MARGIN 100
+#define TIMESLOT_EXT_LENGTH_US       10000//10000
+#define TIMESLOT_EXT_MARGIN_MARGIN	 500//1000
+#define TIMESLOT_REQ_EARLIEST_MARGIN 50
 #define TIMER_EXPIRY_US_EARLY 		 (TIMESLOT_LENGTH_US - MPSL_TIMESLOT_EXTENSION_MARGIN_MIN_US - TIMESLOT_EXT_MARGIN_MARGIN)
 #define TIMER_EXPIRY_REQ			 (TIMESLOT_LENGTH_US - MPSL_TIMESLOT_EXTENSION_MARGIN_MIN_US - TIMESLOT_REQ_EARLIEST_MARGIN)
 
@@ -22,7 +22,7 @@ LOG_MODULE_REGISTER(timeslot, LOG_LEVEL_INF);
 #define STACKSIZE                    CONFIG_MAIN_STACK_SIZE
 #define THREAD_PRIORITY              K_LOWEST_APPLICATION_THREAD_PRIO
 
-static timeslot_callback_t m_callback;
+
 static volatile bool m_in_timeslot = false;
 
 void RADIO_IRQHandler(void);
@@ -31,7 +31,10 @@ void RADIO_IRQHandler(void);
 enum mpsl_timeslot_call {
 	REQ_OPEN_SESSION,
 	REQ_MAKE_REQUEST,
-	REQ_CLOSE_SESSION
+	REQ_CLOSE_SESSION,
+	/** below event type used for ESB start and stop*/
+	// APP_TS_STARTED,		//resume ESB
+	// APP_TS_STOPPED		//suspend ESB
 };
 
 // Timeslot request
@@ -44,6 +47,8 @@ static mpsl_timeslot_request_t timeslot_request_earliest = {
 };
 
 static mpsl_timeslot_signal_return_param_t signal_callback_return_param;
+
+static void set_timeslot_active_status(bool active);
 
 /* Message queue for requesting MPSL API calls to non-preemptible thread */
 K_MSGQ_DEFINE(mpsl_api_msgq, sizeof(enum mpsl_timeslot_call), 10, 4);
@@ -59,20 +64,6 @@ static void schedule_request(enum mpsl_timeslot_call call)
 	}
 }
 
-static void set_timeslot_active_status(bool active)
-{
-	if (active) {
-		if (!m_in_timeslot) {
-			m_in_timeslot = true;
-			m_callback(APP_TS_STARTED);
-		}
-	} else {
-		if (m_in_timeslot) {
-			m_in_timeslot = false;
-			m_callback(APP_TS_STOPPED);
-		}
-	}
-}
 
 static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot_session_id_t session_id, uint32_t signal_type)
 {
@@ -101,6 +92,8 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 			nrf_timer_int_enable(NRF_TIMER0, NRF_TIMER_INT_COMPARE1_MASK);
 
 			set_timeslot_active_status(true);
+			/** resume esb*/
+			// schedule_request(APP_TS_STARTED);
 			break;
 
 		case MPSL_TIMESLOT_SIGNAL_TIMER0:
@@ -110,6 +103,7 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 
 				signal_callback_return_param.callback_action = MPSL_TIMESLOT_SIGNAL_ACTION_EXTEND;
 				signal_callback_return_param.params.extend.length_us = TIMESLOT_LENGTH_US;	
+				// signal_callback_return_param.params.extend.length_us = TIMESLOT_EXT_LENGTH_US;
 			}
 			else if(nrf_timer_event_check(NRF_TIMER0, NRF_TIMER_EVENT_COMPARE1)) {
 				nrf_timer_int_disable(NRF_TIMER0, NRF_TIMER_INT_COMPARE1_MASK);
@@ -132,21 +126,26 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 			uint32_t current_cc = nrf_timer_cc_get(NRF_TIMER0, NRF_TIMER_CC_CHANNEL0);
 			nrf_timer_bit_width_set(NRF_TIMER0, NRF_TIMER_BIT_WIDTH_32);
 			nrf_timer_cc_set(NRF_TIMER0, NRF_TIMER_CC_CHANNEL0, current_cc + TIMESLOT_LENGTH_US);
+			// nrf_timer_cc_set(NRF_TIMER0, NRF_TIMER_CC_CHANNEL0, current_cc + TIMESLOT_EXT_LENGTH_US);
 			nrf_timer_int_enable(NRF_TIMER0, NRF_TIMER_INT_COMPARE0_MASK);
 
 			current_cc = nrf_timer_cc_get(NRF_TIMER0, NRF_TIMER_CC_CHANNEL1);
 			nrf_timer_bit_width_set(NRF_TIMER0, NRF_TIMER_BIT_WIDTH_32);
 			nrf_timer_cc_set(NRF_TIMER0, NRF_TIMER_CC_CHANNEL1, current_cc + TIMESLOT_LENGTH_US);
+			// nrf_timer_cc_set(NRF_TIMER0, NRF_TIMER_CC_CHANNEL1, current_cc + TIMESLOT_EXT_LENGTH_US);
 			nrf_timer_int_enable(NRF_TIMER0, NRF_TIMER_INT_COMPARE1_MASK);
 
 			p_ret_val = &signal_callback_return_param;
 			break;
 
 		case MPSL_TIMESLOT_SIGNAL_EXTEND_FAILED:
+			// LOG_WRN("request timeslot extended failed!");
 			signal_callback_return_param.callback_action = MPSL_TIMESLOT_SIGNAL_ACTION_NONE;
 			timeslot_extension_failed = true;
 			p_ret_val = &signal_callback_return_param;
 			set_timeslot_active_status(false);
+			/** suspend esb*/
+			// schedule_request(APP_TS_STOPPED);
 			break;
 
 		case MPSL_TIMESLOT_SIGNAL_RADIO:
@@ -166,6 +165,8 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 			signal_callback_return_param.callback_action = MPSL_TIMESLOT_SIGNAL_ACTION_END;
 			p_ret_val = &signal_callback_return_param;
 			set_timeslot_active_status(false);
+			/** suspend esb*/
+			// schedule_request(APP_TS_STOPPED);
 			break;
 
 		case MPSL_TIMESLOT_SIGNAL_CANCELLED:
@@ -173,6 +174,8 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 			signal_callback_return_param.callback_action = MPSL_TIMESLOT_SIGNAL_ACTION_NONE;
 			p_ret_val = &signal_callback_return_param;
 			set_timeslot_active_status(false);
+			/** suspend esb*/
+			// schedule_request(APP_TS_STOPPED);
 			
 			// In this case returning SIGNAL_ACTION_REQUEST causes hardfault. We have to request a new timeslot instead, from thread context. 
 			schedule_request(REQ_MAKE_REQUEST);
@@ -183,6 +186,8 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 			signal_callback_return_param.callback_action = MPSL_TIMESLOT_SIGNAL_ACTION_NONE;
 			p_ret_val = &signal_callback_return_param;
 			set_timeslot_active_status(false);
+			/** suspend esb*/
+			// schedule_request(APP_TS_STOPPED);
 
 			// Request a new timeslot in this case
 			schedule_request(REQ_MAKE_REQUEST);
@@ -193,6 +198,8 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 			signal_callback_return_param.callback_action = MPSL_TIMESLOT_SIGNAL_ACTION_END;
 			p_ret_val = &signal_callback_return_param;
 			set_timeslot_active_status(false);
+			/** suspend esb*/
+			// schedule_request(APP_TS_STOPPED);
 			break;
 
 		case MPSL_TIMESLOT_SIGNAL_SESSION_IDLE:
@@ -201,6 +208,8 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 			signal_callback_return_param.callback_action = MPSL_TIMESLOT_SIGNAL_ACTION_NONE;
 			p_ret_val = &signal_callback_return_param;
 			set_timeslot_active_status(false);
+			/** suspend esb*/
+			// schedule_request(APP_TS_STOPPED);
 			break;
 
 		case MPSL_TIMESLOT_SIGNAL_SESSION_CLOSED:
@@ -209,6 +218,8 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 			signal_callback_return_param.callback_action = MPSL_TIMESLOT_SIGNAL_ACTION_NONE;
 			p_ret_val = &signal_callback_return_param;
 			set_timeslot_active_status(false);
+			/** suspend esb*/
+			// schedule_request(APP_TS_STOPPED);
 			break;
 
 		default:
@@ -218,6 +229,42 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 	}
 	
 	return p_ret_val;
+}
+
+
+void timeslot_init(void)
+{
+	schedule_request(REQ_OPEN_SESSION);
+
+	schedule_request(REQ_MAKE_REQUEST);
+}
+
+
+static void set_timeslot_active_status(bool active)
+{
+	if (active) 
+	{
+		if (!m_in_timeslot)
+		{
+			m_in_timeslot = true;
+			app_esb_resume();
+			// pull_packet_from_tx_msgq();
+		}
+		pull_packet_from_tx_msgq();
+	} 
+	else 
+	{
+		if (m_in_timeslot) 
+		{
+			m_in_timeslot = false;
+			app_esb_suspend();
+		}
+	}
+}
+
+bool get_timeslot_status(void)
+{
+	return m_in_timeslot;
 }
 
 /* To ensure thread safe operation, call all MPSL APIs from a non-preemptible
@@ -255,6 +302,14 @@ static void mpsl_nonpreemptible_thread(void)
 						k_oops();
 					}
 					break;
+				// case APP_TS_STARTED:
+				// 	/** resume ESB protocal so you can send data through ESB*/
+				// 	set_timeslot_active_status(true);	
+				// 	break;
+				// case APP_TS_STOPPED:
+				// 	/** stop ESB protocal then ESB is disabled*/
+				// 	set_timeslot_active_status(false);	
+				// 	break;
 				default:
 					LOG_ERR("Wrong timeslot API call");
 					k_oops();
@@ -262,21 +317,6 @@ static void mpsl_nonpreemptible_thread(void)
 			}
 		}
 	}
-}
-
-void timeslot_init(timeslot_callback_t callback)
-{
-	m_callback = callback;
-
-	schedule_request(REQ_OPEN_SESSION);
-
-	schedule_request(REQ_MAKE_REQUEST);
-}
-
-
-bool get_timeslot_status(void)
-{
-	return m_in_timeslot;
 }
 
 
