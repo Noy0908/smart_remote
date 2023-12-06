@@ -93,7 +93,7 @@ static int esb_initialize(app_esb_mode_t mode)
 	/* These are arbitrary default addresses. In end user products
 	 * different addresses should be used for each set of devices.
 	 */
-	uint8_t base_addr_0[4] = {0xE7, 0xE7, 0xE7, 0xE7};
+	uint8_t base_addr_0[4] = {0xE7, 0xE5, 0xE7, 0xE5};
 	uint8_t base_addr_1[4] = {0xC2, 0xC2, 0xC2, 0xC2};
 	uint8_t addr_prefix[8] = {0xE7, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8};
 
