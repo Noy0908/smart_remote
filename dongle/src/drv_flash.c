@@ -20,7 +20,7 @@ void soc_flash_init(void)
 {
     if (!device_is_ready(flash_dev)) {
 		LOG_DBG("Flash device not ready\n");
-		return 0;
+		return ;
 	}
 
 	LOG_DBG("\nTest 1: Flash erase page at 0x%x\n", TEST_PARTITION_OFFSET);
