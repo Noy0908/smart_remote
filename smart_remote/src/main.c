@@ -38,10 +38,6 @@ LOG_MODULE_REGISTER(main, CONFIG_ESB_BT_LOG_LEVEL);
 
 #define ESB_PKT_SIZE	72
 
-K_SEM_DEFINE(esb_sem, 0, 1);
-
-
-
 
 /*
  * Get button configuration from the devicetree sw0 alias. This is mandatory.
@@ -223,39 +219,14 @@ int main(void)
 		return err;
 	}
 	
-
 	timeslot_init();
 
 #if 0
 	while (1) {		
-		// if(is_bt_connected)
-
-		{
-			struct esb_payload tx_payload;
-			if (0 == k_msgq_get(&m_msgq_tx_payloads, &tx_payload, K_MSEC(10)))
-			// if(k_msgq_peek(&m_msgq_tx_payloads, &tx_payload) == 0)
-			{
-				// LOG_INF("ADPCM message queue %p ", (void *) frame_buffer);
-				// LOG_HEXDUMP_INF(block_ptr,frame_size,"ADPCM data");
-				if (k_mutex_lock(&esb_mutex, K_FOREVER) == 0) 
-				{
-					int err = esb_write_payload(&tx_payload);
-					if (err < 0) {
-						LOG_INF("ESB TX upload failed (err %i)", err);
-					}
-					esb_start_tx();	
-
-					k_mutex_unlock(&esb_mutex);
-				}
-			}
-			// else 
-			// {
-			// 	// LOG_INF("ESB TX upload %.2x-%.2x", tx_payload.data[0], tx_payload.data[1]);
-			// 	k_sleep(K_MSEC(1));
-			// }
-		}
-	
-			k_sleep(K_MSEC(10));
+		if (get_timeslot_status()) 
+			pull_packet_from_tx_msgq();
+		else
+			k_sleep(K_MSEC(1));
 	}
 #endif
 	return 0;

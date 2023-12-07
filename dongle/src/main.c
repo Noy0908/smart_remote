@@ -117,8 +117,6 @@ int clocks_start(void)
 }
 
 
-// extern struct k_sem esb_sem;
-
 int main(void)
 {
 	int err;
@@ -160,12 +158,6 @@ int main(void)
 		LOG_ERR("RX setup failed, err %d", err);
 		return err;
 	}
-
-	// while(1)
-	// {
-	// 	k_sem_take(&esb_sem, K_FOREVER);
-	// 	esb_buffer_handle();
-	// }
 
 	/* return to idle thread */
 	return 0;

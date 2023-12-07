@@ -5,6 +5,7 @@
 #include "app_esb.h"
 #include "dvi_adpcm.h"
 #include "mic_work_event.h"
+#include "app_timeslot.h"
 
 LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
 
@@ -24,7 +25,7 @@ static void mic_data_handle(void *, void *, void *)
 {
     void *buffer;
 	uint32_t size;
-	static uint8_t esb_tx_buf[CONFIG_ESB_MAX_PAYLOAD_LENGTH] = {0};
+	static uint8_t esb_tx_buf[CONFIG_ESB_MAX_PAYLOAD_LENGTH] = {5};
 	static uint8_t esb_total_size = 0;
 
     dvi_adpcm_init_state(&m_adpcm_state);
@@ -36,6 +37,7 @@ static void mic_data_handle(void *, void *, void *)
 
     while(1)
     {
+	#if 1
         int frame_size;
 	    char frame_buf[MAX_BLOCK_SIZE/4 + 3] = {0};
 
@@ -54,11 +56,20 @@ static void mic_data_handle(void *, void *, void *)
 
 				esb_total_size = 0;
 			}
+			else
+			{
+				if (get_timeslot_status()) 
+					pull_packet_from_tx_msgq();
+			}
 			
             free_audio_memory(buffer);
 		}
 		// LOG_INF("Sound service start, wait for PCM data......");
 		// k_sleep(K_MSEC(1000));
+	#else
+		esb_package_enqueue(esb_tx_buf, CONFIG_ESB_MAX_PAYLOAD_LENGTH);
+		k_sleep(K_MSEC(1));
+	#endif
     }
 }
 
@@ -83,7 +94,6 @@ static bool mic_work_event_handler(const struct app_event_header *aeh)
 			k_thread_resume(sound_service);
 			
 			turn_on_off_led(true);
-			// test_pdm_transfer(BLOCK_COUNT);
 		}
 		else if(event->type == MIC_STATUS_STOP)
 		{

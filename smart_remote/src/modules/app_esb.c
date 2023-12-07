@@ -2,17 +2,18 @@
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/clock_control/nrf_clock_control.h>
 #include <esb.h>
-
+#include "app_timeslot.h"
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(app_esb, CONFIG_ESB_BT_LOG_LEVEL);
 
+K_SEM_DEFINE(esb_sem, 0, 1);
 
 static app_esb_mode_t m_mode;
 static bool m_active = false;
 static bool m_in_safe_period = false;
 
 
-K_MSGQ_DEFINE(m_msgq_tx_payloads, sizeof(struct esb_payload), 30, 4);
+K_MSGQ_DEFINE(m_msgq_tx_payloads, sizeof(struct esb_payload), 60, 4);
 
 
 static void event_handler(struct esb_evt const *event)
@@ -25,10 +26,6 @@ static void event_handler(struct esb_evt const *event)
 			// Remove the oldest item in the TX queue
 			k_msgq_get(&m_msgq_tx_payloads, &tmp_payload, K_NO_WAIT);
 
-			// Check if there are more messages in the queue
-			if(m_in_safe_period && pull_packet_from_tx_msgq() == 0){
-				LOG_DBG("PCK loaded in ESB TX callback");
-			}
 			break;
 
 		case ESB_EVENT_TX_FAILED:
@@ -36,10 +33,6 @@ static void event_handler(struct esb_evt const *event)
 			
 			esb_flush_tx();
 
-			// Check if there are more messages in the queue
-			// if(m_in_safe_period && pull_packet_from_tx_msgq() == 0){
-			// 	LOG_DBG("PCK loaded in ESB fail callback");
-			// }
 			break;
 
 		case ESB_EVENT_RX_RECEIVED:
@@ -100,7 +93,7 @@ static int esb_initialize(app_esb_mode_t mode)
 	uint8_t addr_prefix[8] = {0xE7, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8};
 
 	struct esb_config config = ESB_DEFAULT_CONFIG;
-
+#if 0
 	config.protocol = ESB_PROTOCOL_ESB_DPL;
 	config.retransmit_delay = 250;//600;
 	config.retransmit_count = 1;
@@ -109,7 +102,16 @@ static int esb_initialize(app_esb_mode_t mode)
 	config.mode = (mode == APP_ESB_MODE_PTX) ? ESB_MODE_PTX : ESB_MODE_PRX;
     config.tx_mode = ESB_TXMODE_MANUAL_START;
 	config.selective_auto_ack = true;
-
+#else
+	config.protocol = ESB_PROTOCOL_ESB_DPL;
+	config.retransmit_delay = 300;//600;
+	config.retransmit_count = 1;
+	config.bitrate = ESB_BITRATE_2MBPS;
+	config.event_handler = event_handler;
+	config.mode = (mode == APP_ESB_MODE_PTX) ? ESB_MODE_PTX : ESB_MODE_PRX;
+    config.tx_mode = ESB_TXMODE_MANUAL_START;
+	config.selective_auto_ack = false;
+#endif
 	err = esb_init(&config);
 
 	if (err) {
@@ -158,23 +160,20 @@ int app_esb_init(app_esb_mode_t mode)
 
 int pull_packet_from_tx_msgq(void)
 {
-	int ret;
+	int ret = 0;
 	static struct esb_payload tx_payload;
 	if (k_msgq_peek(&m_msgq_tx_payloads, &tx_payload) == 0) 
-	// if(0 == k_msgq_get(&m_msgq_tx_payloads, &tx_payload, K_NO_WAIT))
 	{
 		ret = esb_write_payload(&tx_payload);
-		if (ret < 0) 
-		{
-			LOG_INF("ESB TX upload failed (err %i)", ret);		
-			return ret;
-		}
-		esb_start_tx();		
+		if((0== ret) || (ret == ENOMEM))
+			esb_start_tx();
+		else
+			return ret;	
 
-		return 0;
+		return ret;
 	}
 	
-	return -ENOMEM;
+	return ret;
 }
 
 
@@ -188,16 +187,13 @@ int esb_package_enqueue(uint8_t *buf, uint32_t length)
 	memcpy(tx_payload.data, buf, length);
 	tx_payload.length = length;
 	ret = k_msgq_put(&m_msgq_tx_payloads, &tx_payload, K_MSEC(2));
-	if (ret == 0) {
-		if (m_active && m_in_safe_period) {
-			pull_packet_from_tx_msgq();
-		}
-	}
-	else {
+	if (get_timeslot_status()) 
+		pull_packet_from_tx_msgq();
+	if (ret)  {
 		LOG_INF("Audio message queue is full");
 		return -ENOMEM;
 	}
-	return 0;
+	return ret;
 }
 
 
