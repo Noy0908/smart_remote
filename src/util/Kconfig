@@ -31,6 +31,7 @@ config DESKTOP_DFU_LOCK
 	  The module is automatically enabled when the Config Channel DFU and
 	  the MCUmgr DFU are both enabled.
 
+
 if DESKTOP_DFU_LOCK
 
 module = DESKTOP_DFU_LOCK

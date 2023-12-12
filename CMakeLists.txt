@@ -19,9 +19,10 @@ project("nRF52 Desktop"
 
 assert(CONFIG_DESKTOP_HID_REPORT_DESC "HID report descriptor file must be specified")
 
+FILE(GLOB app_sources src/*.c)
 # NORDIC SDK APP START
 target_sources(app PRIVATE
-  src/main.c
+  ${app_sources}
   ${CONFIG_DESKTOP_HID_REPORT_DESC}
   )
 # NORDIC SDK APP END
@@ -42,6 +43,9 @@ add_subdirectory(src/events)
 add_subdirectory(src/hw_interface)
 add_subdirectory(src/modules)
 add_subdirectory(src/util)
+
+#support smart remote module
+add_subdirectory_ifdef(CONFIG_DESKTOP_SMART_REMOTE src/smart_remote)
 
 if(NOT SYSBUILD AND NOT CONFIG_NCS_IS_VARIANT_IMAGE)
   if(CONFIG_BOOTLOADER_MCUBOOT)

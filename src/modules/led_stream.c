@@ -14,6 +14,7 @@
 #include "config_event.h"
 
 #include <zephyr/logging/log.h>
+
 LOG_MODULE_REGISTER(MODULE, CONFIG_DESKTOP_LED_STREAM_LOG_LEVEL);
 
 #define INCOMING_LED_COLOR_COUNT 3

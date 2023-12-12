@@ -9,7 +9,7 @@
 #include <app_event_manager.h>
 #include <caf/events/button_event.h>
 #include <caf/events/power_event.h>
-
+#include <zephyr/drivers/gpio.h>
 #define MODULE buttons_sim
 #include <caf/events/module_state_event.h>
 
@@ -17,6 +17,7 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(MODULE, CONFIG_DESKTOP_BUTTONS_SIM_LOG_LEVEL);
+
 
 enum state {
 	STATE_DISABLED,
@@ -108,6 +109,8 @@ void generate_keys_fn(struct k_work *w)
 	}
 }
 
+
+
 static bool app_event_handler(const struct app_event_header *aeh)
 {
 	if (is_button_event(aeh)) {
@@ -144,7 +147,18 @@ static bool app_event_handler(const struct app_event_header *aeh)
 
 		if (check_state(event, MODULE_ID(main), MODULE_STATE_READY)) {
 			__ASSERT_NO_MSG(state == STATE_DISABLED);
-			k_work_init_delayable(&generate_keys, generate_keys_fn);
+			static bool initialized;
+
+			__ASSERT_NO_MSG(!initialized);
+			initialized = true;
+			/** init button here*/
+			// int err = init_fn();
+			// if (err) {
+			// 	module_set_state(MODULE_STATE_ERROR);
+			// } else {
+			// 	module_set_state(MODULE_STATE_READY);
+			// 	// atomic_set(&active, true);
+			// }
 
 			state = STATE_IDLE;
 			module_set_state(MODULE_STATE_READY);

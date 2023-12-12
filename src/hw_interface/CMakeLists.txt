@@ -32,3 +32,5 @@ target_sources_ifdef(CONFIG_DESKTOP_BATTERY_CHARGER_DISCRETE app
 
 target_sources_ifdef(CONFIG_DESKTOP_BATTERY_MEAS app
                      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/battery_meas.c)
+                     
+

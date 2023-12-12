@@ -15,6 +15,8 @@ target_sources_ifdef(CONFIG_DESKTOP_DFU_LOCK
 target_sources_ifdef(CONFIG_DESKTOP_CONFIG_CHANNEL_ENABLE app
 			PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/config_channel_transport.c)
 
+
+
 if(CONFIG_DESKTOP_BLE_QOS_ENABLE)
   if(CONFIG_FPU)
     if(CONFIG_FP_HARDABI)

@@ -12,6 +12,7 @@ rsource "src/events/Kconfig"
 rsource "src/hw_interface/Kconfig"
 rsource "src/modules/Kconfig"
 rsource "src/util/Kconfig"
+rsource "src/smart_remote/Kconfig"
 rsource "Kconfig.defaults"
 endmenu
 

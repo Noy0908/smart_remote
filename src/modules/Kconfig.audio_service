@@ -1,0 +1,26 @@
+#
+# Copyright (c) 2018 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+
+menu "Sound service"
+
+config DESKTOP_SMART_REMOTE
+	bool "smart remote module"
+	depends on (ESB && MPSL)
+	depends on DESKTOP_PDM_MICROPHONE_ENABLE
+	help
+	  Enable nRF Desktop smart remote module for usb audio asssistance feature.
+	  It needs a dongle to receive to audio stream and output to the host through 
+	  USB audio class protocal.
+
+if DESKTOP_SMART_REMOTE
+
+module = DESKTOP_SMART_REMOTE
+module-str = smart remote
+
+endif
+
+endmenu

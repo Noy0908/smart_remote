@@ -1,0 +1,53 @@
+#
+# Copyright (c) 2019-2021 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+menu "Micphone configuration"
+
+config DESKTOP_PDM_MICROPHONE_ENABLE
+	bool "Enable PDM microphone"
+	depends on AUDIO_DMIC
+	help
+	  This option enables microphone sample in nRF Desktop application.
+	  Could be used for audio application.
+
+if DESKTOP_PDM_MICROPHONE_ENABLE
+
+config DESKTOP_MICROPHONE_MAX_SAMPLE_RATE
+	int "PCM sample rate of stream"
+	default 16000
+	help
+		16 kHz output sample rate.
+
+config DESKTOP_MICROPHONE_SAMPLE_BIT_WIDTH
+	int "PCM sample width of stream"
+	default 16
+	help
+	  16-bit samples.
+
+config DESKTOP_MICROPHONE_CHNANEL_NUMBER
+	int "number of channels."
+	default 1
+	range 1 2
+	help
+	  	actual number of channels in your microphone.
+
+config DESKTOP_MICROPHONE_BLOCK_COUNT
+	int "number of block memory, each one can save 1ms pcm data."
+	default 60
+	range 1 100
+	help
+	  	Driver will allocate blocks from this slab to receive audio data into them.
+		Application, after getting a given block from the driver and processing its
+		data, needs to free that block.
+
+
+
+module = DESKTOP_PDM_MICROPHONE
+module-str = desktop pdm microphone
+source "subsys/logging/Kconfig.template.log_config"
+endif
+
+endmenu
