@@ -1,3 +1,8 @@
 {
-    "iis.configDir": ""
+    "iis.configDir": "",
+    "esbonio.sphinx.confDir": "",
+    "files.associations": {
+        "power_event.h": "c",
+        "button_event.h": "c"
+    }
 }

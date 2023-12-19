@@ -20,17 +20,17 @@ LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
 #define ESB_BLOCK_SIZE            (CONFIG_ESB_MAX_PAYLOAD_LENGTH - CONFIG_ESB_MAX_PAYLOAD_LENGTH % (MAX_BLOCK_SIZE/4 + 3))
 
 /* Milliseconds to wait for a block to be read. */
-#define READ_TIMEOUT            1000
+#define READ_TIMEOUT            SYS_FOREVER_MS
 
 
 static dvi_adpcm_state_t    m_adpcm_state;
 
 
-
 static void mic_data_handle(void *, void *, void *)
 {
-    void *buffer;
 	int err;
+
+    void *buffer;
 	uint32_t size;
 	static uint8_t esb_tx_buf[CONFIG_ESB_MAX_PAYLOAD_LENGTH] = {5};
 	static uint8_t esb_total_size = 0;
@@ -48,9 +48,6 @@ static void mic_data_handle(void *, void *, void *)
 	timeslot_init();
 
     LOG_INF("Sound service start, wait for PCM data......");
-
-	/** suspend the thread until we received a start event*/
-	k_thread_suspend(k_current_get());
 
     while(1)
     {
@@ -81,11 +78,16 @@ static void mic_data_handle(void *, void *, void *)
 			
             free_audio_memory(buffer);
 		}
-		// LOG_INF("Sound service start, wait for PCM data......");
-		// k_sleep(K_MSEC(1000));
+		else
+		{
+			LOG_INF("Sound service resume, wait for PCM data......");
+			k_sleep(K_MSEC(1000));
+		}
+		
 	#else
 		esb_package_enqueue(esb_tx_buf, CONFIG_ESB_MAX_PAYLOAD_LENGTH);
-		k_sleep(K_MSEC(1));
+		LOG_INF("Sound service resume, wait for PCM data......");
+		k_sleep(K_SECONDS(1));
 	#endif
     }
 }
@@ -94,100 +96,29 @@ static void mic_data_handle(void *, void *, void *)
 
 K_THREAD_DEFINE(sound_service, SOUND_STACK_SIZE,
                 mic_data_handle, NULL, NULL, NULL,
-                K_PRIO_PREEMPT(7), 0, 0);
-
-
-
+                K_PRIO_PREEMPT(7), K_ESSENTIAL, 0);
 
 
 
 // extern void turn_on_off_led(bool onOff);
-static bool mic_work_event_handler(const struct app_event_header *aeh)
-{
-	if (is_mic_work_event(aeh)) 
-	{
-		struct mic_work_event *event = cast_mic_work_event(aeh);
-		if (event->type == MIC_STATUS_START) 
-		{
-            LOG_INF("Micphone start to work!");
-			drv_mic_start();
-
-			k_thread_resume(sound_service);
-			
-			// turn_on_off_led(true);
-		}
-		else if(event->type == MIC_STATUS_STOP)
-		{
-            LOG_INF("Micphone stop to work!");
-			drv_mic_stop();
-
-			k_thread_suspend(sound_service);
-
-            // turn_on_off_led(false);
-		}
-
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-static void submit_mic_event(enum mic_status_type type)
-{
-	struct mic_work_event *event = new_mic_work_event();
-
-	event->type = type;
-	APP_EVENT_SUBMIT(event);
-}
-
 static volatile bool button_flag = false;
 static bool handle_click_event(const struct click_event *event)
 {
 	if ((event->key_id == CONFIG_DESKTOP_BLE_PEER_CONTROL_BUTTON) &&
 	    (event->click == CLICK_SHORT)) 
 	{
-	#if 0
-		char state_str[32];
-		const char *str;
-
-		str = k_thread_state_str(sound_service, state_str, sizeof(state_str));
-		if(strcmp(str, "suspended") == 0)
-		{
-			submit_mic_event(MIC_STATUS_START);
-		}
-		else
-		{
-			submit_mic_event(MIC_STATUS_STOP);
-		}
-	#else
 		button_flag = !button_flag;
-		
-		LOG_INF("Button pressed at %d	 button_flag=%d\n", k_cycle_get_32(),button_flag);
-
 		// wake up device and trigger micphone to work
 		if(button_flag)
 		{
-			// struct mic_work_event *mic_event = new_mic_work_event();
-			// mic_event->type = MIC_STATUS_START;
-			// APP_EVENT_SUBMIT(mic_event);
 			LOG_INF("Micphone start to work!");
 			drv_mic_start();
-
-			k_thread_resume(sound_service);
 		}
 		else
 		{
-			// struct mic_work_event *mic_event = new_mic_work_event();
-			// mic_event->type = MIC_STATUS_STOP;
-			// APP_EVENT_SUBMIT(mic_event);
 			LOG_INF("Micphone stop to work!");
 			drv_mic_stop();
-
-			k_thread_suspend(sound_service);
 		}
-	#endif
 	}
 
 	return true;
@@ -226,6 +157,5 @@ static bool app_event_handler(const struct app_event_header *aeh)
 
 
 APP_EVENT_LISTENER(MODULE, app_event_handler);
-// APP_EVENT_SUBSCRIBE(MODULE, mic_work_event);
 APP_EVENT_SUBSCRIBE(MODULE, module_state_event);
 APP_EVENT_SUBSCRIBE(MODULE, click_event);
