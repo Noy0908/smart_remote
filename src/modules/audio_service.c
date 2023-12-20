@@ -6,6 +6,7 @@
 #include "dvi_adpcm.h"
 #include <caf/events/click_event.h>
 #include <caf/events/power_manager_event.h>
+#include <caf/events/power_event.h>
 #include "mic_work_event.h"
 
 #include <zephyr/drivers/gpio.h> 
@@ -192,6 +193,18 @@ static bool app_event_handler(const struct app_event_header *aeh)
 		return handle_click_event(cast_click_event(aeh));
 	}
 
+	if (is_power_down_event(aeh)) 
+	{
+		module_set_state(MODULE_STATE_OFF);
+		return false;
+	}
+
+	if (is_wake_up_event(aeh)) 
+	{
+		// module_set_state(MODULE_STATE_READY);
+		return false;
+	}
+
 	/* If event is unhandled, unsubscribe. */
 	__ASSERT_NO_MSG(false);
 
@@ -202,3 +215,5 @@ static bool app_event_handler(const struct app_event_header *aeh)
 APP_EVENT_LISTENER(MODULE, app_event_handler);
 APP_EVENT_SUBSCRIBE(MODULE, module_state_event);
 APP_EVENT_SUBSCRIBE(MODULE, click_event);
+APP_EVENT_SUBSCRIBE(MODULE, power_down_event);
+APP_EVENT_SUBSCRIBE(MODULE, wake_up_event);
