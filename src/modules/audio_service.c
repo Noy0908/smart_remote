@@ -5,11 +5,16 @@
 #include "drv_mic.h"
 #include "dvi_adpcm.h"
 #include <caf/events/click_event.h>
+#include <caf/events/power_manager_event.h>
 #include "mic_work_event.h"
+
+#include <zephyr/drivers/gpio.h> 
 
 #define MODULE mic_work
 #include <caf/events/module_state_event.h>
 #include "app_timeslot.h"
+
+
 
 LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
 
@@ -22,8 +27,38 @@ LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
 /* Milliseconds to wait for a block to be read. */
 #define READ_TIMEOUT            SYS_FOREVER_MS
 
-
 static dvi_adpcm_state_t    m_adpcm_state;
+
+
+static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
+int dbg_pins_init( void )
+{
+	
+	int err;
+	
+	if (!device_is_ready(dbg_port)) {
+		LOG_ERR("Could not bind to debug port");
+		return -ENODEV;
+	}
+	
+	
+	err = gpio_pin_configure(dbg_port, 4, GPIO_OUTPUT);
+	if (err)
+	{
+		LOG_ERR("Unable to configure dbg err %d",  err);
+		dbg_port = NULL;
+		return err;
+	}
+						
+	gpio_pin_set(dbg_port, 4, 0); 
+	
+	return 0;
+}
+
+void turn_on_off_debug_pin(int value)
+{
+	gpio_pin_set(dbg_port, 4, value); 
+}
 
 
 static void mic_data_handle(void *, void *, void *)
@@ -35,6 +70,8 @@ static void mic_data_handle(void *, void *, void *)
 	static uint8_t esb_tx_buf[CONFIG_ESB_MAX_PAYLOAD_LENGTH] = {5};
 	static uint8_t esb_total_size = 0;
 
+	dbg_pins_init();
+
     dvi_adpcm_init_state(&m_adpcm_state);
 
 	drv_audio_init();
@@ -45,7 +82,7 @@ static void mic_data_handle(void *, void *, void *)
 		return;
 	}
 	
-	timeslot_init();
+	// timeslot_init();
 
     LOG_INF("Sound service start, wait for PCM data......");
 
@@ -70,10 +107,10 @@ static void mic_data_handle(void *, void *, void *)
 
 				esb_total_size = 0;
 			}
-			else
+			
+			if (get_timeslot_status()) 
 			{
-				if (get_timeslot_status()) 
-					pull_packet_from_tx_msgq();
+				pull_packet_from_tx_msgq();
 			}
 			
             free_audio_memory(buffer);
@@ -112,12 +149,18 @@ static bool handle_click_event(const struct click_event *event)
 		if(button_flag)
 		{
 			LOG_INF("Micphone start to work!");
+			
+			timeslot_init();
 			drv_mic_start();
+
+			power_manager_restrict(MODULE_IDX(MODULE), POWER_MANAGER_LEVEL_ALIVE);
 		}
 		else
 		{
 			LOG_INF("Micphone stop to work!");
 			drv_mic_stop();
+
+			timeslot_close();
 		}
 	}
 

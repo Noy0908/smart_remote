@@ -4,6 +4,9 @@
 
 void timeslot_init(void);
 
+void timeslot_close(void);
+
+
 bool get_timeslot_status(void);
 
 #endif

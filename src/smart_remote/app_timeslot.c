@@ -200,6 +200,8 @@ static mpsl_timeslot_signal_return_param_t *mpsl_timeslot_callback(mpsl_timeslot
 			p_ret_val = &signal_callback_return_param;
 			set_timeslot_active_status(false);
 
+			// Request a new timeslot in this case
+			schedule_request(REQ_MAKE_REQUEST);
 			break;
 
 		case MPSL_TIMESLOT_SIGNAL_SESSION_CLOSED:
@@ -232,6 +234,13 @@ void timeslot_init(void)
 }
 
 
+
+void timeslot_close(void)
+{
+	schedule_request(REQ_CLOSE_SESSION);
+}
+
+extern void turn_on_off_debug_pin(int value);
 static void set_timeslot_active_status(bool active)
 {
 	if (active) 
@@ -242,6 +251,7 @@ static void set_timeslot_active_status(bool active)
 			app_esb_resume();
 		}
 		// pull_packet_from_tx_msgq();
+		turn_on_off_debug_pin(1); 
 	} 
 	else 
 	{
@@ -250,6 +260,7 @@ static void set_timeslot_active_status(bool active)
 			m_in_timeslot = false;
 			app_esb_suspend();
 		}
+		turn_on_off_debug_pin(0); 
 	}
 }
 

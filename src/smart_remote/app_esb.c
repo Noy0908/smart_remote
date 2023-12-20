@@ -94,7 +94,6 @@ static int esb_initialize(app_esb_mode_t mode)
 	uint8_t addr_prefix[8] = {0xE7, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8};
 
 	struct esb_config config = ESB_DEFAULT_CONFIG;
-#if 0
 	config.protocol = ESB_PROTOCOL_ESB_DPL;
 	config.retransmit_delay = 250;//600;
 	config.retransmit_count = 1;
@@ -103,18 +102,8 @@ static int esb_initialize(app_esb_mode_t mode)
 	config.mode = (mode == APP_ESB_MODE_PTX) ? ESB_MODE_PTX : ESB_MODE_PRX;
     config.tx_mode = ESB_TXMODE_MANUAL_START;
 	config.selective_auto_ack = true;
-#else
-	config.protocol = ESB_PROTOCOL_ESB_DPL;
-	config.retransmit_delay = 300;//600;
-	config.retransmit_count = 1;
-	config.bitrate = ESB_BITRATE_2MBPS;
-	config.event_handler = event_handler;
-	config.mode = (mode == APP_ESB_MODE_PTX) ? ESB_MODE_PTX : ESB_MODE_PRX;
-    config.tx_mode = ESB_TXMODE_MANUAL_START;
-	config.selective_auto_ack = false;
-#endif
-	err = esb_init(&config);
 
+	err = esb_init(&config);
 	if (err) {
 		return err;
 	}
@@ -164,6 +153,7 @@ int pull_packet_from_tx_msgq(void)
 	int ret = 0;
 	static struct esb_payload tx_payload;
 	if (k_msgq_peek(&m_msgq_tx_payloads, &tx_payload) == 0) 
+	// if(k_msgq_get(&m_msgq_tx_payloads, &tx_payload, K_NO_WAIT) == 0)
 	{
 		ret = esb_write_payload(&tx_payload);
 		if((0== ret) || (ret == ENOMEM))
@@ -188,8 +178,8 @@ int esb_package_enqueue(uint8_t *buf, uint32_t length)
 	memcpy(tx_payload.data, buf, length);
 	tx_payload.length = length;
 	ret = k_msgq_put(&m_msgq_tx_payloads, &tx_payload, K_MSEC(2));
-	if (get_timeslot_status()) 
-		pull_packet_from_tx_msgq();
+	// if (get_timeslot_status()) 
+	// 	pull_packet_from_tx_msgq();
 	if (ret)  {
 		LOG_INF("Audio message queue is full");
 		return -ENOMEM;

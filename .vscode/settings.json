@@ -3,6 +3,7 @@
     "esbonio.sphinx.confDir": "",
     "files.associations": {
         "power_event.h": "c",
-        "button_event.h": "c"
+        "button_event.h": "c",
+        "force_power_down_event.h": "c"
     }
 }
