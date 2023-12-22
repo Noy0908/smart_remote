@@ -20,4 +20,8 @@ static const struct click_detector_config click_detector_config[] = {
 		.key_id = CONFIG_DESKTOP_BLE_PEER_CONTROL_BUTTON,
 		.consume_button_event = false,
 	},
+	// {
+    //     .key_id = CONFIG_DESKTOP_MIC_ACTIVATION,
+    //     .consume_button_event = false,
+    // },
 };

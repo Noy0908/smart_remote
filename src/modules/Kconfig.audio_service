@@ -16,6 +16,12 @@ config DESKTOP_SMART_REMOTE
 	  It needs a dongle to receive to audio stream and output to the host through 
 	  USB audio class protocal.
 
+config DESKTOP_MIC_ACTIVATION
+    hex "Key ID of button used to control micphone"
+    range 0x0000 0xffff
+    help
+      Button which should be used to enable and disable MIC.
+
 if DESKTOP_SMART_REMOTE
 
 module = DESKTOP_SMART_REMOTE

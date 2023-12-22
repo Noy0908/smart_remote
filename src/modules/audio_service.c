@@ -192,7 +192,7 @@ K_THREAD_DEFINE(sound_service, SOUND_STACK_SIZE,
 static volatile bool button_flag = false;
 static bool handle_click_event(const struct click_event *event)
 {
-	if ((event->key_id == CONFIG_DESKTOP_BLE_PEER_CONTROL_BUTTON) &&
+	if ((event->key_id == CONFIG_DESKTOP_MIC_ACTIVATION) &&
 	    (event->click == CLICK_SHORT)) 
 	{
 		button_flag = !button_flag;
@@ -218,7 +218,7 @@ static bool handle_click_event(const struct click_event *event)
 		}
 	}
 
-	return true;
+	return false;
 }
 
 
