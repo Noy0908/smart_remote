@@ -7,8 +7,8 @@
 #include <caf/events/click_event.h>
 #include <caf/events/power_manager_event.h>
 #include <caf/events/power_event.h>
+#include <caf/events/led_event.h>
 #include "mic_work_event.h"
-
 #include <zephyr/drivers/gpio.h> 
 
 #define MODULE mic_work
@@ -30,6 +30,11 @@ LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
 
 static dvi_adpcm_state_t    m_adpcm_state;
 
+static const struct gpio_dt_spec leds[] = {
+	// GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios),
+	GPIO_DT_SPEC_GET(DT_ALIAS(led1), gpios),
+	GPIO_DT_SPEC_GET(DT_ALIAS(led2), gpios),
+};
 
 static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
 int dbg_pins_init( void )
@@ -62,6 +67,50 @@ void turn_on_off_debug_pin(int value)
 }
 
 
+
+static int leds_init(void)
+{
+	int err;
+
+	if (!device_is_ready(leds[0].port)) {
+		LOG_ERR("LEDs port not ready");
+		return -ENODEV;
+	}
+
+
+	for (size_t i = 0; i < ARRAY_SIZE(leds); i++) {
+		err = gpio_pin_configure_dt(&leds[i], GPIO_OUTPUT);
+		if (err) {
+			LOG_ERR("Cannot configure LED gpio");
+			return err;
+		}
+		gpio_pin_set(leds[0].port, leds[i].pin, 0);
+	}
+
+	return 0;
+}
+
+
+static void turn_on_off_led(bool onOff)
+{
+	size_t i = 0;
+	if(onOff == true)
+	{
+		for ( i=0; i < ARRAY_SIZE(leds); i++) 
+		{	
+			gpio_pin_set(leds[0].port, leds[i].pin, 1);
+		}
+	}
+	else
+	{
+		for (i = 0; i < ARRAY_SIZE(leds); i++) 
+		{	
+			gpio_pin_set(leds[0].port, leds[i].pin, 0);
+		}
+	}
+}
+
+
 static void mic_data_handle(void *, void *, void *)
 {
 	int err;
@@ -72,6 +121,7 @@ static void mic_data_handle(void *, void *, void *)
 	static uint8_t esb_total_size = 0;
 
 	dbg_pins_init();
+	leds_init();
 
     dvi_adpcm_init_state(&m_adpcm_state);
 
@@ -153,6 +203,7 @@ static bool handle_click_event(const struct click_event *event)
 			
 			timeslot_init();
 			drv_mic_start();
+			turn_on_off_led(true);
 
 			power_manager_restrict(MODULE_IDX(MODULE), POWER_MANAGER_LEVEL_ALIVE);
 		}
@@ -162,6 +213,8 @@ static bool handle_click_event(const struct click_event *event)
 			drv_mic_stop();
 
 			timeslot_close();
+
+			turn_on_off_led(false);
 		}
 	}
 
