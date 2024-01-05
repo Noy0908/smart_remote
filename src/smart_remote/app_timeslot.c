@@ -269,6 +269,7 @@ bool get_timeslot_status(void)
 	return m_in_timeslot;
 }
 
+
 /* To ensure thread safe operation, call all MPSL APIs from a non-preemptible
  * thread.
  */

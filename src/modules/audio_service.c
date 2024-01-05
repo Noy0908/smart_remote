@@ -28,13 +28,16 @@ LOG_MODULE_REGISTER(sound_service, LOG_LEVEL_INF);
 /* Milliseconds to wait for a block to be read. */
 #define READ_TIMEOUT            SYS_FOREVER_MS
 
+static volatile bool button_flag = false;
+
+
 static dvi_adpcm_state_t    m_adpcm_state;
 
-static const struct gpio_dt_spec leds[] = {
-	// GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios),
-	GPIO_DT_SPEC_GET(DT_ALIAS(led1), gpios),
-	GPIO_DT_SPEC_GET(DT_ALIAS(led2), gpios),
-};
+// static const struct gpio_dt_spec leds[] = {
+// 	// GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios),
+// 	GPIO_DT_SPEC_GET(DT_ALIAS(led1), gpios),
+// 	GPIO_DT_SPEC_GET(DT_ALIAS(led2), gpios),
+// };
 
 static const struct device *dbg_port= DEVICE_DT_GET(DT_NODELABEL(gpio0));
 int dbg_pins_init( void )
@@ -68,47 +71,62 @@ void turn_on_off_debug_pin(int value)
 
 
 
-static int leds_init(void)
+// static int leds_init(void)
+// {
+// 	int err;
+
+// 	if (!device_is_ready(leds[0].port)) {
+// 		LOG_ERR("LEDs port not ready");
+// 		return -ENODEV;
+// 	}
+
+
+// 	for (size_t i = 0; i < ARRAY_SIZE(leds); i++) {
+// 		err = gpio_pin_configure_dt(&leds[i], GPIO_OUTPUT);
+// 		if (err) {
+// 			LOG_ERR("Cannot configure LED gpio");
+// 			return err;
+// 		}
+// 		gpio_pin_set(leds[0].port, leds[i].pin, 0);
+// 	}
+
+// 	return 0;
+// }
+
+
+// void turn_on_off_led(bool onOff)
+// {
+// 	size_t i = 0;
+// 	if(onOff == true)
+// 	{
+// 		for ( i=0; i < ARRAY_SIZE(leds); i++) 
+// 		{	
+// 			gpio_pin_set(leds[0].port, leds[i].pin, 1);
+// 		}
+// 	}
+// 	else
+// 	{
+// 		for (i = 0; i < ARRAY_SIZE(leds); i++) 
+// 		{	
+// 			gpio_pin_set(leds[0].port, leds[i].pin, 0);
+// 		}
+// 	}
+// }
+
+
+
+static void mic_expiry_function(struct k_timer *timer_id)
 {
-	int err;
+	LOG_INF("Micphone has timed out,now stop to work!");
+	drv_mic_stop();
 
-	if (!device_is_ready(leds[0].port)) {
-		LOG_ERR("LEDs port not ready");
-		return -ENODEV;
-	}
+	timeslot_close();
 
-
-	for (size_t i = 0; i < ARRAY_SIZE(leds); i++) {
-		err = gpio_pin_configure_dt(&leds[i], GPIO_OUTPUT);
-		if (err) {
-			LOG_ERR("Cannot configure LED gpio");
-			return err;
-		}
-		gpio_pin_set(leds[0].port, leds[i].pin, 0);
-	}
-
-	return 0;
+	button_flag = false;
 }
 
 
-static void turn_on_off_led(bool onOff)
-{
-	size_t i = 0;
-	if(onOff == true)
-	{
-		for ( i=0; i < ARRAY_SIZE(leds); i++) 
-		{	
-			gpio_pin_set(leds[0].port, leds[i].pin, 1);
-		}
-	}
-	else
-	{
-		for (i = 0; i < ARRAY_SIZE(leds); i++) 
-		{	
-			gpio_pin_set(leds[0].port, leds[i].pin, 0);
-		}
-	}
-}
+K_TIMER_DEFINE(mic_timer, mic_expiry_function, NULL);
 
 
 static void mic_data_handle(void *, void *, void *)
@@ -121,7 +139,7 @@ static void mic_data_handle(void *, void *, void *)
 	static uint8_t esb_total_size = 0;
 
 	dbg_pins_init();
-	leds_init();
+	// leds_init();
 
     dvi_adpcm_init_state(&m_adpcm_state);
 
@@ -132,8 +150,6 @@ static void mic_data_handle(void *, void *, void *)
 		LOG_ERR("app_esb init failed (err %d)", err);
 		return;
 	}
-	
-	// timeslot_init();
 
     LOG_INF("Sound service start, wait for PCM data......");
 
@@ -188,33 +204,38 @@ K_THREAD_DEFINE(sound_service, SOUND_STACK_SIZE,
 
 
 
-// extern void turn_on_off_led(bool onOff);
-static volatile bool button_flag = false;
+
 static bool handle_click_event(const struct click_event *event)
 {
 	if ((event->key_id == CONFIG_DESKTOP_MIC_ACTIVATION) &&
 	    (event->click == CLICK_SHORT)) 
 	{
-		button_flag = !button_flag;
-		// wake up device and trigger micphone to work
-		if(button_flag)
+		/** wake up device and trigger micphone to work */
+		if(!button_flag)
 		{
 			LOG_INF("Micphone start to work!");
 			
 			timeslot_init();
 			drv_mic_start();
-			turn_on_off_led(true);
+			// turn_on_off_led(true);
+
+			/* start one shot timer that expires once CONFIG_DESKTOP_MIC_WORK_TIMEOUT seconds */
+			k_timer_start(&mic_timer, K_SECONDS(CONFIG_DESKTOP_MIC_WORK_TIMEOUT), K_NO_WAIT);
 
 			power_manager_restrict(MODULE_IDX(MODULE), POWER_MANAGER_LEVEL_ALIVE);
+
+			button_flag = true;
 		}
 		else
 		{
-			LOG_INF("Micphone stop to work!");
-			drv_mic_stop();
+			/* restart the one shot timer that expires once CONFIG_DESKTOP_MIC_WORK_TIMEOUT seconds */
+			k_timer_start(&mic_timer, K_SECONDS(CONFIG_DESKTOP_MIC_WORK_TIMEOUT), K_NO_WAIT);
+			// LOG_INF("Micphone stop to work!");
+			// drv_mic_stop();
 
-			timeslot_close();
+			// timeslot_close();
 
-			turn_on_off_led(false);
+			// turn_on_off_led(false);
 		}
 	}
 

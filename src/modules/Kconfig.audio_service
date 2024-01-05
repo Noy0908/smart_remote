@@ -22,6 +22,14 @@ config DESKTOP_MIC_ACTIVATION
     help
       Button which should be used to enable and disable MIC.
 
+config DESKTOP_MIC_WORK_TIMEOUT
+	int "How long can the microphone work when it starts, unit seconds"
+	range 0 120
+	default 20
+	help
+	  when the audio feature been triggered, it starts a timer to count the micphone work time, 
+	  when the timer expires, then we power off the micphone.
+
 if DESKTOP_SMART_REMOTE
 
 module = DESKTOP_SMART_REMOTE
