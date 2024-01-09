@@ -248,8 +248,8 @@ static int motion_read(bool send_event)
 					 &value_y);
 	}
 #endif
-	// LOG_INF("err=%d\t value_x=%f\t value_y=%f\n",err, sensor_value_to_float(&value_x), sensor_value_to_float(&value_y));
-
+	// LOG_INF("%f--%f",sensor_value_to_float(&value_x), sensor_value_to_float(&value_y));
+	
 	if (err || !send_event) {
 		return err;
 	}
@@ -270,7 +270,10 @@ static int motion_read(bool send_event)
 	struct motion_event *event = new_motion_event();
 
 	event->dx = value_x.val1*CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
-	event->dy = value_y.val1*CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
+	event->dy = value_y.val1*CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR; 
+
+	LOG_INF("%f--%f : %d--%d", sensor_value_to_float(&value_x), sensor_value_to_float(&value_y), event->dx, event->dy);
+
 	APP_EVENT_SUBMIT(event);
 
 	return err;
@@ -492,9 +495,7 @@ static void motion_thread_fn(void)
 	}
 
 	while (!err) 
-	// while(1)
 	{
-	#if 1
 		bool send_event;
 		uint32_t option_bm;
 
@@ -526,15 +527,6 @@ static void motion_thread_fn(void)
 			enable_trigger();
 		}
 		k_spin_unlock(&state.lock, key);
-	#else
-
-	err = motion_read(false);
-	{
-		LOG_ERR("morion read error = %d\n", err);
-	}
-	k_sleep(K_MSEC(500));
-
-	#endif
 	}
 
 	/* This thread is supposed to run forever. */
