@@ -180,7 +180,7 @@ static int buttons_init( void )
 }
 
 
-// extern struct k_mutex esb_mutex;
+
 int main(void)
 {
 	int err;

@@ -116,7 +116,7 @@ void esb_buffer_handle(void)
 
     if (esb_read_rx_payload(&rx_payload) == 0) 
     {
-        // LOG_INF("Packet received, len %d ", rx_payload.length);
+        LOG_INF("Packet received, len %d ", rx_payload.length);
         //     "0x%02x, 0x%02x, 0x%02x, 0x%02x ",				
         //     rx_payload.length, rx_payload.data[0],
         //     rx_payload.data[1], rx_payload.data[2],
