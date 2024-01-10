@@ -28,7 +28,7 @@ dmic_dev: &pdm0 {
 		status = "okay";
 		vin-supply = <&mpu_pwr>;
 		irq-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
-		gyro-sr-div = <0>;
+		gyro-sr-div = <10>;
 		gyro-dlpf = <184>;
 		gyro-fs = <2000>;
 		accel-fs = <2>;
