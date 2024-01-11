@@ -14,3 +14,23 @@ dmic_dev: &pdm0 {
 	clock-source = "PCLK32M_HFXO";
 };
 
+&mpu_pwr {
+    status = "okay";
+	regulator-always-on;
+};
+
+
+&i2c0 {
+	mpu9250: mpu9250@68 {
+		compatible = "invensense,mpu9250";
+		reg = <0x68>;
+		status = "okay";
+		vin-supply = <&mpu_pwr>;
+		irq-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
+		gyro-sr-div = <10>;
+		gyro-dlpf = <5>;
+		gyro-fs = <2000>;
+		accel-fs = <2>;
+		accel-dlpf="5.05";
+	};
+};

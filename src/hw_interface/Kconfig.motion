@@ -29,6 +29,13 @@ config DESKTOP_MOTION_SENSOR_PAW3212_ENABLE
 	help
 	  If selected, movement data it obtained from PAW3212 optical sensor.
 
+config DESKTOP_MOTION_SENSOR_MPU9250_ENABLE
+	bool "Motion from optical sensor MPU9250"
+	select DESKTOP_MOTION_SENSOR_ENABLE
+	depends on MPU9250
+	help
+	  If selected, movement data it obtained from MPU9250 optical sensor.
+
 config DESKTOP_MOTION_BUTTONS_ENABLE
 	bool "Motion from buttons"
 	depends on CAF_BUTTON_EVENTS
@@ -50,6 +57,7 @@ config DESKTOP_MOTION_SENSOR_TYPE
 	string
 	default "pmw3360" if DESKTOP_MOTION_SENSOR_PMW3360_ENABLE
 	default "paw3212" if DESKTOP_MOTION_SENSOR_PAW3212_ENABLE
+	default "mpu9250" if DESKTOP_MOTION_SENSOR_MPU9250_ENABLE
 
 config DESKTOP_MOTION_BUTTONS_UP_KEY_ID
 	int "Up key ID"
@@ -100,6 +108,16 @@ config DESKTOP_MOTION_SIMULATED_SCALE_FACTOR
 	depends on DESKTOP_MOTION_SIMULATED_ENABLE
 	range 1 5
 	default 2
+	help
+	  The simulated movement data will be tracing predefined path, an eight-sided polygon.
+	  This option defines scale factor for tracked polygon size.
+
+
+config DESKTOP_MOTION_MPU9250_SCALE_FACTOR
+	int "Scale factor for given shape"
+	depends on DESKTOP_MOTION_SENSOR_MPU9250_ENABLE
+	range 1 50
+	default 15
 	help
 	  The simulated movement data will be tracing predefined path, an eight-sided polygon.
 	  This option defines scale factor for tracked polygon size.

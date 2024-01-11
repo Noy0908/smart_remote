@@ -12,7 +12,7 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
-
+#include <zephyr/drivers/gpio.h>
 #include "motion_sensor.h"
 
 #include <app_event_manager.h>
@@ -229,7 +229,16 @@ static int motion_read(bool send_event)
 	struct sensor_value value_y;
 
 	int err = sensor_sample_fetch(sensor_dev);
-
+#if defined(CONFIG_DESKTOP_MOTION_SENSOR_MPU9250_ENABLE)
+	if (!err) {
+		err = sensor_channel_get(sensor_dev, SENSOR_CHAN_GYRO_Z,
+					 &value_x);
+	}
+	if (!err) {
+		err = sensor_channel_get(sensor_dev, SENSOR_CHAN_GYRO_Y,
+					 &value_y);
+	}
+#else
 	if (!err) {
 		err = sensor_channel_get(sensor_dev, SENSOR_CHAN_POS_DX,
 					 &value_x);
@@ -238,7 +247,9 @@ static int motion_read(bool send_event)
 		err = sensor_channel_get(sensor_dev, SENSOR_CHAN_POS_DY,
 					 &value_y);
 	}
-
+#endif
+	// LOG_INF("%f--%f",sensor_value_to_float(&value_x), sensor_value_to_float(&value_y));
+	
 	if (err || !send_event) {
 		return err;
 	}
@@ -258,8 +269,13 @@ static int motion_read(bool send_event)
 
 	struct motion_event *event = new_motion_event();
 
-	event->dx = value_x.val1;
-	event->dy = value_y.val1;
+	event->dx = (value_x.val1*100 + value_x.val2/10000) / CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
+    event->dy = (value_y.val1*100 + value_y.val2/10000) / CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
+	// event->dx = (value_x.val1*10 + value_x.val2/100000) * CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
+	// event->dy = (value_y.val1*10 + value_y.val2/100000) * CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
+
+	// LOG_INF("%d--%d : %d--%d", value_x.val2, value_y.val2, event->dx, event->dy);
+
 	APP_EVENT_SUBMIT(event);
 
 	return err;
@@ -433,6 +449,7 @@ static void update_config(const uint8_t opt_id, const uint8_t *data,
 	}
 }
 
+
 static void write_config(void)
 {
 	uint32_t option[MOTION_SENSOR_OPTION_COUNT];
@@ -470,6 +487,7 @@ static void write_config(void)
 	}
 }
 
+
 static void motion_thread_fn(void)
 {
 	int err = init();
@@ -478,7 +496,8 @@ static void motion_thread_fn(void)
 		module_set_state(MODULE_STATE_READY);
 	}
 
-	while (!err) {
+	while (!err) 
+	{
 		bool send_event;
 		uint32_t option_bm;
 
@@ -516,6 +535,7 @@ static void motion_thread_fn(void)
 	module_set_state(MODULE_STATE_ERROR);
 }
 
+
 static bool handle_usb_state_event(const struct usb_state_event *event)
 {
 	switch (event->state) {
@@ -533,6 +553,7 @@ static bool handle_usb_state_event(const struct usb_state_event *event)
 
 	return false;
 }
+
 
 static bool app_event_handler(const struct app_event_header *aeh)
 {
@@ -713,6 +734,8 @@ static bool app_event_handler(const struct app_event_header *aeh)
 
 	return false;
 }
+
+
 APP_EVENT_LISTENER(MODULE, app_event_handler);
 APP_EVENT_SUBSCRIBE(MODULE, module_state_event);
 APP_EVENT_SUBSCRIBE(MODULE, hid_report_sent_event);
