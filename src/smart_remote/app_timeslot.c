@@ -240,7 +240,7 @@ void timeslot_close(void)
 	schedule_request(REQ_CLOSE_SESSION);
 }
 
-extern void turn_on_off_debug_pin(int value);
+// extern void turn_on_off_debug_pin(int value);
 static void set_timeslot_active_status(bool active)
 {
 	if (active) 
@@ -250,8 +250,7 @@ static void set_timeslot_active_status(bool active)
 			m_in_timeslot = true;
 			app_esb_resume();
 		}
-		// pull_packet_from_tx_msgq();
-		turn_on_off_debug_pin(1); 
+		// turn_on_off_debug_pin(1); 
 	} 
 	else 
 	{
@@ -260,7 +259,7 @@ static void set_timeslot_active_status(bool active)
 			m_in_timeslot = false;
 			app_esb_suspend();
 		}
-		turn_on_off_debug_pin(0); 
+		// turn_on_off_debug_pin(0); 
 	}
 }
 

@@ -153,7 +153,6 @@ int pull_packet_from_tx_msgq(void)
 	int ret = 0;
 	static struct esb_payload tx_payload;
 	if (k_msgq_peek(&m_msgq_tx_payloads, &tx_payload) == 0) 
-	// if(k_msgq_get(&m_msgq_tx_payloads, &tx_payload, K_NO_WAIT) == 0)
 	{
 		ret = esb_write_payload(&tx_payload);
 		if((0== ret) || (ret == ENOMEM))
@@ -178,8 +177,6 @@ int esb_package_enqueue(uint8_t *buf, uint32_t length)
 	memcpy(tx_payload.data, buf, length);
 	tx_payload.length = length;
 	ret = k_msgq_put(&m_msgq_tx_payloads, &tx_payload, K_MSEC(2));
-	// if (get_timeslot_status()) 
-	// 	pull_packet_from_tx_msgq();
 	if (ret)  {
 		LOG_INF("Audio message queue is full");
 		return -ENOMEM;

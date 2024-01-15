@@ -64,10 +64,10 @@ int dbg_pins_init( void )
 	return 0;
 }
 
-void turn_on_off_debug_pin(int value)
-{
-	gpio_pin_set(dbg_port, 4, value); 
-}
+// void turn_on_off_debug_pin(int value)
+// {
+// 	gpio_pin_set(dbg_port, 4, value); 
+// }
 
 
 
