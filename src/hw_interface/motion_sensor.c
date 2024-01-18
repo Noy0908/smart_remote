@@ -269,10 +269,10 @@ static int motion_read(bool send_event)
 
 	struct motion_event *event = new_motion_event();
 
-	// event->dx = value_x.val1*CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR + value_x.val2/100000;
-	// event->dy = value_y.val1*CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR + value_y.val2/100000; 
-	event->dx = (value_x.val1*10 + value_x.val2/100000) * CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
-	event->dy = (value_y.val1*10 + value_y.val2/100000) * CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
+	event->dx = (value_x.val1*100 + value_x.val2/10000) / CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
+    event->dy = (value_y.val1*100 + value_y.val2/10000) / CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
+	// event->dx = (value_x.val1*10 + value_x.val2/100000) * CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
+	// event->dy = (value_y.val1*10 + value_y.val2/100000) * CONFIG_DESKTOP_MOTION_MPU9250_SCALE_FACTOR;
 
 	LOG_INF("%d--%d : %d--%d", value_x.val2, value_y.val2, event->dx, event->dy);
 

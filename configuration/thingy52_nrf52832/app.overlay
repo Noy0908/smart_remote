@@ -29,7 +29,7 @@ dmic_dev: &pdm0 {
 		vin-supply = <&mpu_pwr>;
 		irq-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
 		gyro-sr-div = <10>;
-		gyro-dlpf = <20>;
+		gyro-dlpf = <5>;
 		gyro-fs = <2000>;
 		accel-fs = <2>;
 		accel-dlpf="5.05";
